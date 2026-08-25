@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cotizador — Grupo Frankar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --azul:#24303C; --grafito:#1E2833; --acero:#606C6C; --terra:#9C4818;
+  --arena:#EDE7DC; --piedra:#C7C2B8; --hueso:#FAF8F6;
+  --ink:#1E2833; --ink2:#24303C; --ink3:#606C6C; --ink4:#93968f;
+  --rule:#e2ded3; --rule2:#f1efe8;
+  --bg:#FAF8F6; --sur:#fff;
+  --acc:#24303C; --acc2:#1E2833; --accl:#EDE7DC;
+  --terral:#f2e3d8;
+  --ok:#3d6b3a; --okb:#e9f1e6;
+  --wa:#8a6412; --wab:#fdf1dc;
+  --da:#8a2a1a; --dab:#fbeae6;
+  --gao:#24303C; --gad:#606C6C; --gaf:#9C4818; --gag:#7a5a3a;
+  --gaob:#e7eaee; --gadb:#eceded; --gafb:#f2e3d8; --gagb:#efe8e1;
+  --r:6px;
+  --sh:0 1px 3px rgba(30,40,51,.07),0 4px 12px rgba(30,40,51,.06);
+  --shl:0 4px 16px rgba(30,40,51,.12),0 20px 40px rgba(30,40,51,.08);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;font-size:14px;color:var(--ink);background:var(--bg);min-height:100vh}
+h1,h2,h3,.brand-face{font-family:'Barlow Condensed',sans-serif;font-weight:700}
+body.simple-mode .admin-only{display:none!important}
+.hdr{background:var(--grafito);color:#fff;padding:0 24px;display:flex;align-items:center;gap:18px;height:58px;position:sticky;top:0;z-index:100;box-shadow:0 2px 16px rgba(0,0,0,.28)}
+.hdr img.logo-img{height:30px;width:auto;display:block}
+.hdr .tagline{font-family:'Inter',sans-serif;font-size:11px;color:rgba(255,255,255,.5);border-left:1px solid rgba(255,255,255,.2);padding-left:14px;letter-spacing:.2px}
+.nav{display:flex;gap:3px;margin-left:auto}
+.nb{padding:6px 13px;border:none;background:transparent;color:rgba(255,255,255,.65);font-family:'Inter',sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;border-radius:5px;transition:all .15s}
+.nb:hover{background:rgba(255,255,255,.12);color:#fff}.nb.on{background:var(--terra);color:#fff}
+.body{max-width:1400px;margin:0 auto;padding:24px 20px 60px}
+.sec{display:none}.sec.on{display:block}
+.card{background:var(--sur);border-radius:10px;box-shadow:var(--sh);overflow:hidden;margin-bottom:18px;border:1px solid var(--rule2)}
+.ch{padding:13px 18px;border-bottom:1px solid var(--rule);display:flex;align-items:center;gap:10px}
+.ct{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:17px;letter-spacing:.2px;color:var(--ink)}
+.ca{margin-left:auto;display:flex;gap:7px}
+.cb{padding:18px}
+.fg{display:flex;flex-direction:column;gap:4px}.fg.s2{grid-column:span 2}
+label{font-size:10.5px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.6px}
+input,select,textarea{width:100%;padding:8px 10px;border:1.5px solid var(--rule);border-radius:var(--r);font-family:'Inter',sans-serif;font-size:13px;color:var(--ink);background:var(--sur);outline:none;transition:border-color .15s,box-shadow .15s}
+input:focus,select:focus,textarea:focus{border-color:var(--azul);box-shadow:0 0 0 3px rgba(36,48,60,.1)}
+input[readonly]{background:var(--rule2);color:var(--ink3)}
+textarea{resize:vertical;min-height:56px}
+input[type=number]{font-variant-numeric:tabular-nums}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border:none;border-radius:var(--r);font-family:'Inter',sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap}
+.bp{background:var(--azul);color:#fff}.bp:hover{background:var(--grafito)}
+.bs{background:var(--rule2);color:var(--ink2);border:1.5px solid var(--rule)}.bs:hover{background:var(--rule)}
+.bd{background:var(--dab);color:var(--da)}.bd:hover{background:#f6d9d1}
+.bt{background:var(--terra);color:#fff}.bt:hover{background:#7d3a12}
+.bsm{padding:4px 9px;font-size:11.5px}
+.bfull{width:100%;justify-content:center;padding:10px 14px;font-size:13px}
+.rb{background:var(--azul);color:#fff;border-radius:10px;padding:20px 24px;display:grid;gap:14px;margin-bottom:20px;position:relative;overflow:hidden}
+.rb::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--terra)}
+.rb.admin-cols{grid-template-columns:repeat(6,1fr)}
+.rb.simple-cols{grid-template-columns:repeat(4,1fr)}
+.ri{text-align:center}.rl{font-size:10.5px;opacity:.68;font-weight:700;text-transform:uppercase;letter-spacing:.6px}
+.rv{font-variant-numeric:tabular-nums;font-size:19px;font-weight:600;margin-top:4px}.rv.big{font-size:25px}
+.dt{width:100%;border-collapse:collapse;font-size:13px}
+.dt th{background:var(--rule2);padding:8px 10px;text-align:left;font-size:10.5px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--rule)}
+.dt td{padding:7px 10px;border-bottom:1px solid var(--rule2);vertical-align:middle}
+.dt tr:last-child td{border-bottom:none}
+.dt tr:hover td{background:var(--rule2)}
+.dt tfoot td{background:var(--accl);font-weight:700;border-top:2px solid var(--rule)}
+.mn{font-variant-numeric:tabular-nums;font-size:12.5px}
+.tw{overflow-x:auto}
+.fb{display:inline-flex;align-items:center;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;font-variant-numeric:tabular-nums}
+.fb.GAO{background:var(--gaob);color:var(--gao)}.fb.GAD{background:var(--gadb);color:var(--gad)}.fb.GAF{background:var(--gafb);color:var(--gaf)}.fb.GAG{background:var(--gagb);color:var(--gag)}
+.dbar-wrap{margin-bottom:13px}.dbar-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
+.dbar-track{height:10px;background:var(--rule2);border-radius:5px;overflow:hidden}
+.dbar-fill{height:10px;border-radius:5px;transition:width .5s ease}
+.cr{display:grid;grid-template-columns:100px 1fr 120px 160px 110px auto;align-items:center;gap:12px;padding:10px 14px;background:var(--sur);border:1.5px solid var(--rule);border-radius:8px;font-size:13px;margin-bottom:7px;transition:border-color .15s}
+.cr:hover{border-color:var(--azul)}
+.nb2{font-variant-numeric:tabular-nums;font-size:12px;font-weight:700;color:var(--azul);background:var(--accl);padding:3px 8px;border-radius:4px;white-space:nowrap}
+.tc{position:fixed;bottom:22px;right:22px;display:flex;flex-direction:column;gap:7px;z-index:9999}
+.toast{padding:9px 15px;border-radius:6px;font-size:13px;font-weight:600;color:#fff;box-shadow:var(--shl);animation:si .18s ease}
+.toast.ok{background:#33593a}.toast.err{background:#7a2a1a}
+@keyframes si{from{transform:translateX(18px);opacity:0}to{transform:translateX(0);opacity:1}}
+.util-note{display:flex;align-items:center;gap:8px;background:var(--terral);border:1px solid #e6cbb2;border-radius:7px;padding:8px 12px;font-size:12px;color:#6b3410;margin-top:10px}
+.util-note b{font-variant-numeric:tabular-nums}
+.itable{width:100%;border-collapse:collapse;font-size:12.5px}
+.itable th{background:var(--rule2);padding:7px 9px;text-align:left;font-size:10px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.4px;border-bottom:2px solid var(--rule)}
+.itable td{padding:8px 9px;border-bottom:1px solid var(--rule2);vertical-align:top}
+.itable .n{text-align:right;font-variant-numeric:tabular-nums}
+.itable .letra{font-family:'Barlow Condensed',sans-serif;font-weight:700;color:var(--azul);font-size:15px}
+.empty-items{padding:26px;text-align:center;color:var(--ink4);font-size:12.5px}
+.desctog{display:flex;gap:6px}
+.desctog select{width:64px;flex-shrink:0}
+.gsheet-status{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:3px 8px;border-radius:10px;font-weight:600}
+.gsheet-status.on{background:var(--okb);color:var(--ok)}
+.gsheet-status.off{background:var(--rule2);color:var(--ink4)}
+.subtle-btn{background:none;border:none;color:var(--azul);font-size:11.5px;font-weight:600;cursor:pointer;text-decoration:underline;padding:0}
+
+/* ---- Documento de cotización (cliente) ---- */
+.qdoc{background:#fff;border:1px solid var(--rule);border-radius:10px;padding:0;max-width:960px;margin:0 auto;box-shadow:var(--shl);overflow:hidden}
+.qbanner{background:var(--grafito);color:#fff;padding:26px 40px;display:flex;justify-content:space-between;align-items:flex-start;gap:24px}
+.qbanner img.logo-img{height:46px;width:auto;display:block;margin-bottom:10px}
+.qbanner .qrazon{font-size:12px;font-weight:600;color:#fff}
+.qbanner .qrubro{font-size:10.5px;color:rgba(255,255,255,.62);margin-top:5px;line-height:1.6;max-width:420px}
+.qbanner .qdircontacto{font-size:10.5px;color:rgba(255,255,255,.62);margin-top:8px;line-height:1.7}
+.qbanner .qslogan{font-size:11px;font-style:italic;color:var(--terra);opacity:.95;margin-top:10px}
+.qmb{text-align:right;flex-shrink:0}
+.qtitle{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;letter-spacing:2px;color:rgba(255,255,255,.6);text-transform:uppercase}
+.qnum{font-variant-numeric:tabular-nums;font-size:28px;color:#fff;font-weight:700;margin-top:2px}
+.qd{font-size:11.5px;color:rgba(255,255,255,.65);margin-top:4px}
+.qbody{padding:32px 40px 40px}
+.qst{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:1.2px;color:var(--azul);border-bottom:2px solid var(--terra);padding-bottom:6px;margin:26px 0 12px;display:inline-block}
+.qst-wrap{border-bottom:1px solid var(--rule)}
+.qcg{display:grid;grid-template-columns:120px 1fr 120px 1fr;gap:6px 10px;font-size:12.5px;line-height:1.8}
+.qcg span{color:var(--ink3);font-weight:600}
+.qit{width:100%;table-layout:fixed;border-collapse:collapse;font-size:11.5px}
+.qit th{background:var(--azul);color:#fff;padding:7px 6px;text-align:left;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.2px;overflow-wrap:break-word;word-break:break-word}
+.qit td{padding:7px 6px;border-bottom:1px solid var(--rule2);overflow-wrap:break-word;word-break:break-word;white-space:normal;vertical-align:top}
+.qit tr:last-child td{border-bottom:2px solid var(--rule)}
+.qit .n{text-align:right;font-variant-numeric:tabular-nums}
+.qpay{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:6px}
+.qpaybox{background:var(--rule2);border-radius:8px;padding:14px 16px;font-size:12px;line-height:1.9;color:var(--ink2)}
+.qpaybox b{color:var(--ink)}
+.qtb{background:var(--accl);border:2px solid var(--azul);border-radius:8px;padding:14px 18px}
+.qtrow{display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0;color:var(--ink2)}
+.qtrow.total{border-top:1.5px solid var(--azul);margin-top:6px;padding-top:8px;font-weight:700;font-size:15px;color:var(--azul)}
+.qtrow.total .qv{font-variant-numeric:tabular-nums;font-size:22px}
+.qcond{font-size:11px;line-height:1.75;color:var(--ink2)}
+.qcond-cols{display:grid;grid-template-columns:1fr 1fr;gap:26px;margin-top:6px}
+.qchecklist{list-style:none;font-size:11px;line-height:1.85}
+.qchecklist li{display:flex;gap:7px}
+.qchecklist .yes{color:var(--ok);font-weight:700}
+.qchecklist .no{color:var(--ink4)}
+.qsubh{font-size:11px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.4px;margin:10px 0 4px}
+.qadic{width:100%;border-collapse:collapse;font-size:10.5px}
+.qadic th{background:var(--rule2);padding:5px 7px;text-align:left;font-weight:700;color:var(--ink3);text-transform:uppercase;font-size:9.5px;letter-spacing:.3px}
+.qadic td{padding:5px 7px;border-bottom:1px solid var(--rule2);vertical-align:top}
+.qobs{background:var(--rule2);border-left:3px solid var(--terra);border-radius:0 7px 7px 0;padding:14px 16px;font-size:10.5px;color:var(--ink2);line-height:1.85;margin-top:20px}
+.qft{background:var(--arena);margin-top:0;padding:16px 40px;display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--ink3);border-top:1px solid var(--rule)}
+.qft .qdept{font-weight:700;color:var(--azul);letter-spacing:.4px}
+
+.div{height:1px;background:var(--rule);margin:14px 0}
+.fb2{display:flex;justify-content:space-between;align-items:center}
+.flex{display:flex}.g8{gap:8px}.mb14{margin-bottom:14px}.tm{color:var(--ink3)}
+::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-track{background:var(--rule2)}::-webkit-scrollbar-thumb{background:var(--piedra);border-radius:3px}
+
+@media print{
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
+  @page{size:letter;margin:10mm}
+  .hdr,.nav,.nb,.no-print,.tc{display:none!important}
+  body{background:#fff}
+  .sec{display:block!important}.sec:not(#s-prev){display:none!important}
+  .qdoc{box-shadow:none;border:none;max-width:100%}
+  .qbanner,.qit tr,.qpaybox,.qtb,.qcond-cols,.qobs,.qft{break-inside:avoid}
+  .qst,.qst-wrap{break-after:avoid}
+}
+</style>
+</head>
+<body>
+<header class="hdr">
+  <img class="logo-img" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAgsAAAF0CAMAAACaHYp1AAAAZlBMVEX///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////+rG8stAAAAIXRSTlMABgwSGyEqMDk/SFFXYGZvdXuEjZafqLG6w8nP2OHn7fbMYsOvAAAZ+0lEQVR42u2da6OyrBKG8azZuexkreL//8mVHU1BGUBDmvvDfvfTMtPhchiGAQlBoVAoFAqFQqFQKBQKhUKhUCgUCoVCoQxQiiZAPUXRBKgnCwgD6tlJ0AkaAfV0DDEaAXWTR6mDVkA9HMMBjYC6yacYP6JejgFDBtSLBZqgGVBXuQUMLtoB9XAMOzQD6qqkgGGMdkA9HAMdoR1QTxhwzhL1ZIEGaAgUcbCXQH06Bsw/ogiJ7iws0RKop2PA+BFFRg8YcGYC9XQMGDKg3jCEaApk4SGsf0QFTximaAt0DOgZUA85FD0DquoYMM3w8/LeMPhojR9X8oYBa95+Xec3DJhmwJCBYgISVWVhi9bA8PGpGZrjt7VDGFCMXgLTDAjDW2s0x08rK8OQoT3QMTy1QHv8SKszP00/YMBs9G9oKeAYcDTxK44hbHcMCMOvhAYCvQSOJn6EhVCgl8CY4Rc04rRzUoEBN2f4jfEjs1LhUIEBM5A/wUIi0ksgDPZrwosG4ioMaKtfcAzsZt5WYZijsX6ABaGxBOYZrNeYP2aswYBraH7AMQj2EhgzWK550ciRmGPAWctfcAzMgWVahwELYu1ngb2fn48w/CIM7L15/uowYNLJfscQC4YMdIMWs1d5AwwThOEXHcNU1DHgaMJ6FsR7CXpCm9mqBAwDZp2s1bmpfslDGH6xl2C38IHFwh6NZjkLYnUtuFmHzfIbM0kuGwZcX2e3YxCepSqE7z62Ul5zinnChgEXTtjtGKYAx0CPaDgLNX+17wgCwxktZ7NjYMMw4sCAL6+zGwYC8Qx0haazmAV2/LjnwZCj7SyGgV39fkYYfpAFjmegXOE6GothCIEwYARpLwvA+BHTTjbDwI4BQj4MOIttl5xy2zqsIxYNMOBrTq3tJdirJ3cNMDhoQIvktcNwaYABi2JtdQyQ+kcM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" alt="Grupo Frankar">
+  <span class="tagline" id="hdr_tagline">Cotizador de Servicios</span>
+  <nav class="nav">
+    <button class="nb on" onclick="show('cot')">✦ Nueva Cotización</button>
+    <button class="nb" onclick="show('hist')">≡ Historial</button>
+    <button class="nb" onclick="show('prev')">◻ Vista Previa</button>
+    <button class="nb" onclick="show('cfg')">✎ Configuración</button>
+  </nav>
+</header>
+<div class="tc" id="tc"></div>
+<main class="body">
+
+<section class="sec on" id="s-cot">
+  <div class="fb2 mb14">
+    <div>
+      <h1 style="font-size:26px" id="cot_h1">Nueva Cotización</h1>
+      <p class="tm" style="font-size:13px;margin-top:3px">Agrega uno o más servicios — el sistema calcula desde la base Value de Frankar</p>
+    </div>
+    <div class="flex g8">
+      <button class="btn bs" onclick="limpiarCot()">✕ Limpiar Todo</button>
+      <button class="btn bp" onclick="guardarCot()">✓ Guardar Cotización</button>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:360px 1fr;gap:20px;align-items:start">
+    <div>
+      <div class="card">
+        <div class="ch"><div class="ct">Datos del Cliente</div></div>
+        <div class="cb">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:11px">
+            <div class="fg s2"><label>Razón Social / Nombre</label><input type="text" id="c_emp" placeholder="Empresa S.A."></div>
+            <div class="fg"><label>RUT</label><input type="text" id="c_rut" placeholder="76.XXX.XXX-X"></div>
+            <div class="fg"><label>Contacto</label><input type="text" id="c_ctc" placeholder="Nombre contacto"></div>
+            <div class="fg"><label>Teléfono</label><input type="text" id="c_tel" placeholder="+56 9 XXXX XXXX"></div>
+            <div class="fg"><label>Email</label><input type="email" id="c_mail" placeholder="correo@empresa.cl"></div>
+            <div class="fg s2"><label>Dirección</label><input type="text" id="c_dir" placeholder="Calle, número"></div>
+            <div class="fg"><label>Comuna</label><input type="text" id="c_com" placeholder="Comuna"></div>
+            <div class="fg"><label>Ciudad</label><input type="text" id="c_ciu" placeholder="Ciudad"></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="ch"><div class="ct">Datos de la Cotización</div></div>
+        <div class="cb">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:11px">
+            <div class="fg"><label>N° Cotización</label>
+              <input type="text" id="c_num" readonly>
+            </div>
+            <div class="fg"><label>Fecha</label><input type="date" id="c_fec"></div>
+            <div class="fg"><label>Vigencia (días)</label><input type="number" id="c_vig" value="30"></div>
+            <div class="fg"><label>Moneda</label>
+              <select id="c_mon">
+                <option value="CLP">CLP — Pesos</option>
+                <option value="UF">UF</option><option value="USD">USD</option>
+              </select>
+            </div>
+            <div class="fg s2"><label>Condición de Pago</label>
+              <select id="c_pago">
+                <option>30 días fecha factura</option><option>60 días fecha factura</option>
+                <option>Crédito 61 días</option><option>Contado</option><option>Contra entrega</option><option>A convenir</option>
+              </select>
+            </div>
+            <div class="fg s2"><label>Tipo de Venta</label>
+              <select id="c_tv">
+                <option>Transporte</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="ch"><div class="ct">Agregar Servicio</div></div>
+        <div class="cb">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:11px">
+            <div class="fg s2">
+              <label>Tipo de Equipo</label>
+              <select id="c_eq" onchange="onEqChange()">
+                <option value="">— Seleccionar —</option>
+              </select>
+            </div>
+            <div class="fg s2">
+              <label>Tipo de Operación</label>
+              <select id="c_centro" onchange="calcularPreview()">
+                <option value="faena">Faena</option>
+                <option value="matriz">Matriz</option>
+              </select>
+            </div>
+            <div class="fg s2"><label>Descripción / Observaciones</label>
+              <textarea id="c_desc" rows="2" placeholder="Condiciones especiales del servicio..."></textarea>
+            </div>
+            <div class="fg"><label>Origen</label><input type="text" id="c_ori" placeholder="Ciudad / Lugar"></div>
+            <div class="fg"><label>Destino</label><input type="text" id="c_dst" placeholder="Ciudad / Lugar"></div>
+            <div class="fg">
+              <label>Kilómetros</label>
+              <input type="number" id="c_km" min="0" step="1" placeholder="0" oninput="calcularPreview()">
+            </div>
+            <div class="fg"><label>Días</label>
+              <input type="number" id="c_dias" min="0" step="1" placeholder="0" oninput="calcularPreview()">
+            </div>
+            <div class="fg"><label>Unidades</label>
+              <input type="number" id="c_uni" min="1" value="1" oninput="calcularPreview()">
+            </div>
+            <div class="fg">
+              <label>Descuento</label>
+              <div class="desctog">
+                <select id="c_desctipo" onchange="calcularPreview()">
+                  <option value="monto">$</option>
+                  <option value="pct">%</option>
+                </select>
+                <input type="number" id="c_descval" min="0" step="1" value="0" oninput="calcularPreview()">
+              </div>
+            </div>
+          </div>
+          <div class="util-note admin-only" id="util_note" style="display:none">
+            <span>💡</span>
+            <span>Utilidad aplicada para este equipo: <b id="util_pct">—</b> (definida automáticamente, no editable)</span>
+          </div>
+          <button class="btn bt bfull" style="margin-top:12px" onclick="agregarServicio()">+ Agregar Servicio a la Cotización</button>
+        </div>
+      </div>
+      <div class="card admin-only">
+        <div class="ch"><div class="ct">Detalle del Servicio Actual</div>
+          <div class="ca" id="eq_label" style="font-size:12px;color:var(--ink3)">—</div>
+        </div>
+        <div class="tw">
+          <table class="dt">
+            <thead><tr>
+              <th style="width:85px">Familia</th>
+              <th>Concepto</th>
+              <th style="text-align:right;width:110px">Costo Base</th>
+              <th style="text-align:right;width:70px">% Carga</th>
+              <th style="text-align:right;width:120px">Subtotal</th>
+            </tr></thead>
+            <tbody id="dbody">
+              <tr><td colspan="5" style="padding:26px;text-align:center;color:var(--ink4);font-size:12px">
+                Completa el formulario para previsualizar el costo
+              </td></tr>
+            </tbody>
+            <tfoot id="dfoot"></tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="rb admin-cols" id="rb_totales">
+        <div class="ri admin-only"><div class="rl">Costo Neto</div><div class="rv" id="r_cn">$0</div></div>
+        <div class="ri admin-only"><div class="rl" id="r_ut_lbl">Utilidad</div><div class="rv" id="r_ut">$0</div></div>
+        <div class="ri"><div class="rl">Precio Neto</div><div class="rv" id="r_neto">$0</div></div>
+        <div class="ri"><div class="rl">Descuento</div><div class="rv" id="r_desc">$0</div></div>
+        <div class="ri"><div class="rl">IVA (19%)</div><div class="rv" id="r_iva">$0</div></div>
+        <div class="ri"><div class="rl">Total c/IVA</div><div class="rv big" id="r_tot">$0</div></div>
+      </div>
+      <div class="card">
+        <div class="ch"><div class="ct">Servicios de esta Cotización</div><div class="ca" id="items_count" style="font-size:12px;color:var(--ink3)">0 servicios</div></div>
+        <div class="tw">
+          <table class="itable">
+            <thead><tr>
+              <th style="width:30px">Ítem</th><th>Equipo / Operación</th><th>Ruta</th><th class="n">Km · Días</th><th class="n">Precio Neto</th><th class="n">Descuento</th><th class="n">Total</th><th style="width:36px"></th>
+            </tr></thead>
+            <tbody id="items_body">
+              <tr><td colspan="8" class="empty-items">Aún no agregas servicios — completa el formulario y presiona "+ Agregar Servicio"</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card admin-only" id="cdist" style="display:none">
+        <div class="ch"><div class="ct">Distribución por Familia (servicio actual)</div></div>
+        <div class="cb" id="bdist"></div>
+      </div>
+      <div class="card admin-only" id="cref" style="display:none">
+        <div class="ch"><div class="ct">Precio de Referencia (servicio actual)</div></div>
+        <div class="cb">
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;text-align:center">
+            <div><div style="font-size:11px;color:var(--ink3);text-transform:uppercase;font-weight:700;letter-spacing:.4px">$/km neto</div>
+              <div class="mn" style="font-size:20px;margin-top:5px" id="ref_km">—</div></div>
+            <div><div style="font-size:11px;color:var(--ink3);text-transform:uppercase;font-weight:700;letter-spacing:.4px">$/día neto</div>
+              <div class="mn" style="font-size:20px;margin-top:5px" id="ref_dia">—</div></div>
+            <div><div style="font-size:11px;color:var(--ink3);text-transform:uppercase;font-weight:700;letter-spacing:.4px">$/km c/IVA</div>
+              <div class="mn" style="font-size:20px;margin-top:5px" id="ref_km_iva">—</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="s-hist">
+  <div class="fb2 mb14">
+    <div>
+      <h1 style="font-size:26px">Historial de Cotizaciones</h1>
+      <p class="tm" style="font-size:13px;margin-top:3px">Seguimiento y gestión de cotizaciones emitidas</p>
+    </div>
+    <div class="flex g8">
+      <input type="text" id="hbus" placeholder="Buscar cliente o N°..." style="width:210px" oninput="renderHist()">
+      <select id="hest" style="width:130px" onchange="renderHist()">
+        <option value="">— Estado —</option>
+        <option>Borrador</option><option>Enviada</option><option>Aprobada</option><option>Rechazada</option>
+      </select>
+    </div>
+  </div>
+  <div id="hcont"></div>
+</section>
+
+<section class="sec" id="s-prev">
+  <div class="fb2 mb14 no-print">
+    <div>
+      <h1 style="font-size:26px">Vista Previa</h1>
+      <p class="tm" style="font-size:13px;margin-top:3px">Documento listo para enviar al cliente. Al descargar el PDF, elige destino "Guardar como PDF" para conservar el formato y los colores.</p>
+    </div>
+    <div class="flex g8">
+      <select id="psel" style="width:300px" onchange="loadPreview()"><option value="">— Seleccionar cotización —</option></select>
+      <button class="btn bp" onclick="window.print()">⬇ Descargar PDF</button>
+    </div>
+  </div>
+  <div id="pcont">
+    <div class="card" style="padding:60px;text-align:center;color:var(--ink4)">
+      <div style="font-size:42px;margin-bottom:10px">◻</div>
+      <div style="font-size:15px">Selecciona una cotización para previsualizar</div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="s-cfg">
+  <div class="mb14">
+    <h1 style="font-size:26px">Configuración</h1>
+    <p class="tm" style="font-size:13px;margin-top:3px">Datos de la empresa que aparecen en las cotizaciones</p>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+    <div class="card">
+      <div class="ch"><div class="ct">Datos de la Empresa</div></div>
+      <div class="cb">
+        <div style="display:grid;gap:11px">
+          <div class="fg"><label>Razón Social</label><input type="text" id="cfg_emp" placeholder="Sociedad de Transportes Frankar Ltda."></div>
+          <div class="fg"><label>RUT</label><input type="text" id="cfg_rut" placeholder="76.060.284-1"></div>
+          <div class="fg"><label>Rubros / Áreas de servicio</label><input type="text" id="cfg_rubro" placeholder="Transporte de Carga en Faena · Interurbano · Indivisible — Arriendo de Maquinarias — Taller Mecánico"></div>
+          <div class="fg"><label>Dirección</label><input type="text" id="cfg_dir" placeholder="Ruta 5 Norte Km. 226, Los Vilos, Región de Coquimbo"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:11px">
+            <div class="fg"><label>Teléfono</label><input type="text" id="cfg_tel" placeholder="+56 2 542171"></div>
+            <div class="fg"><label>Celular</label><input type="text" id="cfg_cel" placeholder="+56 9 5148 1860"></div>
+          </div>
+          <div class="fg"><label>Email</label><input type="email" id="cfg_mail" placeholder="contacto@frankar.cl"></div>
+          <div class="fg"><label>Sitio Web</label><input type="text" id="cfg_web" placeholder="frankar.cl"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:11px">
+            <div class="fg"><label>Prefijo N° Cotización</label><input type="text" id="cfg_pfx" placeholder="(vacío = solo correlativo)"></div>
+            <div class="fg"><label>N° inicial</label><input type="number" id="cfg_corr0" value="1" min="1"></div>
+          </div>
+          <button class="btn bp" onclick="saveConfig()">Guardar Configuración</button>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="card">
+        <div class="ch"><div class="ct">Datos Bancarios (aparecen en la cotización)</div></div>
+        <div class="cb">
+          <div style="display:grid;gap:11px">
+            <div class="fg"><label>Banco</label><input type="text" id="cfg_banco" placeholder="Banco Santander"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:11px">
+              <div class="fg"><label>Tipo de Cuenta</label><input type="text" id="cfg_tcta" placeholder="Cuenta Corriente"></div>
+              <div class="fg"><label>N° Cuenta</label><input type="text" id="cfg_ncta" placeholder="00000000"></div>
+            </div>
+            <div class="fg"><label>Correo para confirmar transferencia</label><input type="email" id="cfg_mailpago" placeholder="pagos@frankar.cl"></div>
+            <div class="div"></div>
+            <div class="fg"><label>Vendedor / Ejecutivo comercial</label><input type="text" id="cfg_vend" placeholder="Nombre del ejecutivo"></div>
+            <div class="fg"><label>Teléfono del vendedor</label><input type="text" id="cfg_vendtel" placeholder="+56 9 XXXX XXXX"></div>
+            <div class="fg"><label>Email del vendedor</label><input type="email" id="cfg_vendmail" placeholder="ejecutivo@frankar.cl"></div>
+            <button class="btn bp" onclick="saveConfig()">Guardar Configuración</button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="ch"><div class="ct">Guardado en Google Sheets</div>
+          <div class="ca"><span class="gsheet-status off" id="gs_status">Inactivo</span></div>
+        </div>
+        <div class="cb">
+          <div style="display:grid;gap:11px">
+            <div style="background:var(--rule2);border-radius:7px;padding:11px 13px;font-size:11.5px;line-height:1.7;color:var(--ink2)">
+              Cada cotización guardada se envía como filas (una por servicio) directamente a tu pestaña <strong>BD Cotizaciones</strong>, mediante un Web App de Apps Script. Ese mismo conector también entrega el número de cotización consecutivo y los costos vigentes (leídos en vivo desde la pestaña Value de la planilla Valorizador). Pide el archivo <strong>google-apps-script.gs</strong> y las instrucciones de despliegue — una vez desplegado, pega aquí la URL que entrega Google.
+            </div>
+            <div class="fg"><label>URL del Web App (Apps Script)</label><input type="text" id="cfg_gsurl" placeholder="https://script.google.com/macros/s/XXXX/exec"></div>
+            <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-weight:500;color:var(--ink2);font-size:12.5px;cursor:pointer">
+              <input type="checkbox" id="cfg_gsactivo" style="width:auto" onchange="saveConfig()"> Activar guardado automático al presionar "Guardar Cotización"
+            </label>
+            <button class="btn bs" id="btn_test_gs" onclick="testGoogleSheets()">Probar conexión</button>
+            <div style="background:var(--terral);border:1px solid #e6cbb2;border-radius:7px;padding:10px 13px;font-size:11px;line-height:1.7;color:#6b3410">
+              ⚠ Por una limitación técnica de Apps Script (CORS), el navegador nunca puede confirmar si la fila realmente llegó — el mensaje "enviado" solo indica que la solicitud salió de tu computador, no que Google la procesó. Para confirmar de verdad, abre la planilla y revisa directamente la pestaña <strong>BD Cotizaciones</strong> (las filas nuevas quedan al final; si no aparecen, revisa que hayas desplegado el Apps Script como "Aplicación web" con acceso "Cualquier usuario", que hayas pegado la URL correcta arriba, y que el archivo .gs desplegado sea la versión más reciente).
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="ch"><div class="ct">Datos y Exportación</div></div>
+        <div class="cb">
+          <div style="display:grid;gap:10px">
+            <div style="background:var(--rule2);border-radius:7px;padding:13px 15px;font-size:12.5px;line-height:1.75;color:var(--ink2)">
+              Los costos base (GAO/GAD/GAF/GAG por Faena y Matriz) provienen de la pestaña <strong>Value</strong> y están embebidos en este HTML.<br>
+              Las cotizaciones y configuración se guardan también en el navegador (localStorage) de este equipo.
+            </div>
+            <button class="btn bs" onclick="exportCotJSON()">⤒ Exportar Cotizaciones (JSON)</button>
+            <div class="div"></div>
+            <button class="btn bd" onclick="resetAll()">⚠ Borrar todos los datos locales</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<script>
+/* ============================================================
+   MODO: 'admin' muestra el desglose interno de costos y márgenes.
+   'simple' (operativo) sólo muestra precios netos y totales.
+   ============================================================ */
+const MODE = 'simple';
+
+/* ============================================================
+   BASE DE COSTOS — pestaña "Value", columna B "Centro de Negocio"
+   ============================================================ */
+const PCT_IND = 0.0035;
+
+const CENTROS = {
+  faena:  { nombre:'Faena',  gadDirDia: 94610.89, gadIndPool: 1590690.10, gafIndPool: 610740.00, gagPool: 240702.00 },
+  matriz: { nombre:'Matriz', gadDirDia: 88151.00, gadIndPool: 1911388.37, gafIndPool: 120249.00, gagPool: 337587.64 },
+};
+
+const COMP = {
+  tracto:   { faena:{gaov:852, gaof:5215},  matriz:{gaov:789, gaof:9300},  gafDir:116267 },
+  batea:    { faena:{gaov:87,  gaof:1623},  matriz:{gaov:50,  gaof:1623},  gafDir:37263  },
+  camabaja: { faena:{gaov:89,  gaof:1623},  matriz:{gaov:51,  gaof:1623},  gafDir:40453  },
+  rampla:   { faena:{gaov:85,  gaof:1623},  matriz:{gaov:49,  gaof:1623},  gafDir:27188  },
+};
+
+function sumaComp(keys){
+  return {
+    faena:  { gaov: keys.reduce((s,k)=>s+COMP[k].faena.gaov,0),  gaof: keys.reduce((s,k)=>s+COMP[k].faena.gaof,0)  },
+    matriz: { gaov: keys.reduce((s,k)=>s+COMP[k].matriz.gaov,0), gaof: keys.reduce((s,k)=>s+COMP[k].matriz.gaof,0) },
+    gafDir: keys.reduce((s,k)=>s+COMP[k].gafDir,0),
+  };
+}
+
+const EQUIPOS = {
+  'camioneta':     { nombre:'Camioneta',                unidad:'Km', util:25, faena:{gaov:217, gaof:6151},  matriz:{gaov:177, gaof:8286},  gafDir:47535  },
+  'camion-simple-34':   { nombre:'Camión Simple 3-4T',   unidad:'Km', util:25, faena:{gaov:225, gaof:5215},  matriz:{gaov:167, gaof:13571}, gafDir:31380  },
+  'camion-simple-1014': { nombre:'Camión Simple 10-14T', unidad:'Km', util:25, faena:{gaov:348, gaof:5215},  matriz:{gaov:238, gaof:13571}, gafDir:52424  },
+  'camion-tolva':  { nombre:'Camión Tolva',               unidad:'Km', util:25, faena:{gaov:1418,gaof:9288},  matriz:{gaov:602, gaof:5028},  gafDir:164091 },
+  'tracto':        (()=>{ const c=sumaComp(['tracto']);   return { nombre:'Tracto',                 unidad:'Km', util:25, faena:c.faena, matriz:c.matriz, gafDir:c.gafDir }; })(),
+  'tracto-batea':  (()=>{ const c=sumaComp(['tracto','batea']);    return { nombre:'Tracto + Batea',            unidad:'Km', util:25, faena:c.faena, matriz:c.matriz, gafDir:c.gafDir }; })(),
+  'tracto-cb35':   (()=>{ const c=sumaComp(['tracto','camabaja']); return { nombre:'Tracto + Cama Baja 35T',    unidad:'Km', util:35, faena:c.faena, matriz:c.matriz, gafDir:c.gafDir }; })(),
+  'tracto-cb45':   (()=>{ const c=sumaComp(['tracto','camabaja']); return { nombre:'Tracto + Cama Baja 45T',    unidad:'Km', util:45, faena:c.faena, matriz:c.matriz, gafDir:c.gafDir }; })(),
+  'tracto-cb80':   (()=>{ const c=sumaComp(['tracto','camabaja']); return { nombre:'Tracto + Cama Baja 80T',    unidad:'Km', util:80, faena:c.faena, matriz:c.matriz, gafDir:c.gafDir }; })(),
+  'tracto-rampla': (()=>{ const c=sumaComp(['tracto','rampla']);   return { nombre:'Tracto + Rampla',           unidad:'Km', util:25, faena:c.faena, matriz:c.matriz, gafDir:c.gafDir }; })(),
+};
+
+// Debe coincidir EXACTO con TOKEN_SEGURIDAD en google-apps-script.gs — sirve
+// para que el conector rechace solicitudes de escritura que no vengan de
+// este cotizador (ver comentario de seguridad al inicio del .gs).
+const TOKEN_CONECTOR = 'frankar-cotizador-2026-x7k2';
+
+// Los valores de arriba (faena/matriz/gafDir) son un RESPALDO local por si
+// no hay conector configurado o falla la conexión. Cuando hay un conector
+// (ST.cfg.gsUrl) activo, esta función le pregunta los costos reales, leídos
+// en vivo desde la pestaña "Value" de la planilla de costos, y los
+// reemplaza en EQUIPOS. Solo se sobrescribe un Centro de Negocio (Faena o
+// Matriz) si el dato remoto trae algo distinto de cero — así, si a la
+// planilla le falta información para un equipo/centro puntual, el
+// cotizador sigue usando el valor local en vez de pisarlo con un $0 que
+// arruinaría el cálculo silenciosamente.
+function fetchCostosRemotos(){
+  const gsUrl = ST.cfg && ST.cfg.gsUrl;
+  if(!gsUrl) return;
+  fetch(gsUrl + (gsUrl.includes('?') ? '&' : '?') + 'action=costos')
+    .then(r=>r.json())
+    .then(data=>{
+      if(!data || !data.ok || !data.equipos) return;
+      Object.keys(data.equipos).forEach(key=>{
+        const local = EQUIPOS[key];
+        const remoto = data.equipos[key];
+        if(!local || !remoto) return;
+        ['faena','matriz'].forEach(centro=>{
+          const r = remoto[centro];
+          if(r && (r.gaov>0 || r.gaof>0)) local[centro] = { gaov:r.gaov, gaof:r.gaof };
+        });
+        if(remoto.gafDir>0) local.gafDir = remoto.gafDir;
+      });
+      // Si el equipo seleccionado ya estaba en pantalla, refresca el cálculo
+      // con los costos recién llegados.
+      if(typeof calcularPreview === 'function') calcularPreview();
+    })
+    .catch(()=>{ /* sin conexión o conector no desplegado: se mantienen los valores locales de respaldo */ });
+}
+
+let ST = {cots:[], corr:1, cfg:{}};
+let draftItems = [];
+const save = () => { try { localStorage.setItem('frankar_cotizador_v2', JSON.stringify({cots:ST.cots,corr:ST.corr,cfg:ST.cfg})); } catch(e){} };
+function load() {
+  try {
+    const r = localStorage.getItem('frankar_cotizador_v2');
+    if(r) { const p=JSON.parse(r); ST.cots=p.cots||[]; ST.corr=p.corr||1; ST.cfg=p.cfg||{}; }
+  } catch(e) {}
+}
+const $ = id => document.getElementById(id);
+const fCLP = n => !n&&n!==0 ? '—' : '$'+Math.round(n).toLocaleString('es-CL');
+const fPct = n => (n||0).toFixed(1)+'%';
+const fFecha = d => new Date(d).toLocaleDateString('es-CL',{year:'numeric',month:'long',day:'numeric'});
+const FAM_NAMES = {GAO:'Operacional',GAD:'Administrativo',GAF:'Financiero',GAG:'Gastos Generales'};
+const FAM_COLORS = {GAO:'var(--gao)',GAD:'var(--gad)',GAF:'var(--gaf)',GAG:'var(--gag)'};
+const letra = i => String.fromCharCode(65 + (i%26));
+
+function toast(msg,t='ok') {
+  const el=document.createElement('div');
+  el.className='toast '+t; el.textContent=msg;
+  $('tc').appendChild(el);
+  setTimeout(()=>el.remove(),3200);
+}
+
+function show(id) {
+  document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));
+  document.querySelectorAll('.nb').forEach(b=>b.classList.remove('on'));
+  $('s-'+id).classList.add('on');
+  const idx={cot:0,hist:1,prev:2,cfg:3};
+  document.querySelectorAll('.nb')[idx[id]].classList.add('on');
+  if(id==='hist') renderHist();
+  if(id==='prev') populatePrev();
+  if(id==='cfg') loadCfg();
+}
+
+function poblarEquipos(){
+  const sel = $('c_eq');
+  sel.innerHTML = '<option value="">— Seleccionar —</option>' +
+    Object.keys(EQUIPOS).map(k=>'<option value="'+k+'">'+EQUIPOS[k].nombre+'</option>').join('');
+}
+
+function onEqChange(){
+  const eq = EQUIPOS[$('c_eq').value];
+  $('eq_label').textContent = eq ? eq.nombre : '—';
+  if(eq){
+    $('util_note').style.display='';
+    $('util_pct').textContent = eq.util+'%';
+  } else {
+    $('util_note').style.display='none';
+  }
+  calcularPreview();
+}
+
+/* Calcula el item "en construcción" a partir del formulario. No lo agrega a la lista. */
+function computarDraft(){
+  const eqKey = $('c_eq').value;
+  const eq = EQUIPOS[eqKey];
+  if(!eq) return null;
+  const centroKey = $('c_centro').value || 'faena';
+  const centro = CENTROS[centroKey];
+  const km    = parseFloat($('c_km').value)   || 0;
+  const dias  = parseFloat($('c_dias').value) || 0;
+  const uni   = parseFloat($('c_uni').value)  || 1;
+  const descTipo = $('c_desctipo').value;
+  const descVal  = parseFloat($('c_descval').value) || 0;
+
+  const gaov = eq[centroKey].gaov, gaof = eq[centroKey].gaof;
+
+  const lineas = [
+    { familia:'GAO', tipo:'dir', concepto:'GAO Variable (Km)', nota: fCLP(gaov)+'/km · '+centro.nombre, base: gaov*km, pct:1.0, subtotal: gaov*km },
+    { familia:'GAO', tipo:'dir', concepto:'GAO Fijo (Día)',    nota: fCLP(gaof)+'/día · '+centro.nombre, base: gaof*dias, pct:1.0, subtotal: gaof*dias },
+    { familia:'GAD', tipo:'dir', concepto:'GAD Directo — Conductor (Día)', nota: fCLP(centro.gadDirDia)+'/día · '+centro.nombre, base: centro.gadDirDia*dias, pct:1.0, subtotal: centro.gadDirDia*dias },
+    { familia:'GAD', tipo:'ind', concepto:'GAD Indirectos (Día)', nota:'Pool '+fCLP(centro.gadIndPool)+' × 0,35% · '+centro.nombre, base: centro.gadIndPool*PCT_IND*dias, pct:PCT_IND, subtotal: centro.gadIndPool*PCT_IND*dias },
+    { familia:'GAF', tipo:'dir', concepto:'GAF Directos (Día)', nota: fCLP(eq.gafDir)+'/día', base: eq.gafDir*dias, pct:1.0, subtotal: eq.gafDir*dias },
+    { familia:'GAF', tipo:'ind', concepto:'GAF Indirectos (Día)', nota:'Pool '+fCLP(centro.gafIndPool)+' × 0,35% · '+centro.nombre, base: centro.gafIndPool*PCT_IND*dias, pct:PCT_IND, subtotal: centro.gafIndPool*PCT_IND*dias },
+    { familia:'GAG', tipo:'ind', concepto:'GAG — Gastos Generales (Día)', nota:'Pool '+fCLP(centro.gagPool)+' × 0,35% · '+centro.nombre, base: centro.gagPool*PCT_IND*dias, pct:PCT_IND, subtotal: centro.gagPool*PCT_IND*dias },
+  ];
+
+  const costoNeto = lineas.reduce((s,l)=>s+l.subtotal,0) * uni;
+  const porFam = {GAO:0,GAD:0,GAF:0,GAG:0};
+  lineas.forEach(l => { porFam[l.familia] += l.subtotal*uni; });
+
+  const util = eq.util;
+  const precioVenta = costoNeto*(1+util/100);
+  const descuentoMonto = descTipo==='pct' ? precioVenta*(descVal/100) : Math.min(descVal, precioVenta);
+  const precioNetoFinal = Math.max(precioVenta - descuentoMonto, 0);
+  const iva = precioNetoFinal*0.19;
+  const total = precioNetoFinal + iva;
+
+  return {
+    eqKey, eqNombre: eq.nombre, centroKey, centroNombre: centro.nombre, unidad: eq.unidad,
+    origen: $('c_ori').value, destino: $('c_dst').value, descripcion: $('c_desc').value,
+    km, dias, unidades: uni, descTipo, descVal,
+    lineas, porFam, costoNeto, util, precioVenta,
+    descuentoMonto, precioNetoFinal, precioUnitario: precioVenta/uni, iva, total,
+  };
+}
+
+function calcularPreview() {
+  const d = computarDraft();
+  if(!d) {
+    $('dbody').innerHTML='<tr><td colspan="5" style="padding:26px;text-align:center;color:var(--ink4);font-size:12px">Selecciona un tipo de equipo</td></tr>';
+    $('dfoot').innerHTML='';
+    $('cdist').style.display='none';
+    $('cref').style.display='none';
+    return;
+  }
+
+  $('dbody').innerHTML = d.lineas.map(l => {
+    const badge = l.tipo==='dir'
+      ? '<span style="font-size:10px;font-weight:700;background:var(--gaob);color:var(--gao);padding:2px 5px;border-radius:3px;margin-left:4px">Directo 100%</span>'
+      : '<span style="font-size:10px;font-weight:700;background:var(--rule2);color:var(--ink3);padding:2px 5px;border-radius:3px;margin-left:4px">Indirecto 0,35%</span>';
+    return '<tr>' +
+      '<td><span class="fb '+l.familia+'">'+l.familia+'</span></td>' +
+      '<td><span style="font-size:12.5px">'+l.concepto+'</span>' +
+          '<br><span style="font-size:11px;color:var(--ink4)">'+l.nota+'</span>'+badge+'</td>' +
+      '<td style="text-align:right" class="mn">'+fCLP(l.base)+'</td>' +
+      '<td style="text-align:right;font-size:12px">'+(l.pct===1?'100%':'0,35%')+'</td>' +
+      '<td style="text-align:right" class="mn"><strong>'+fCLP(l.subtotal*d.unidades)+'</strong></td>' +
+      '</tr>';
+  }).join('');
+
+  $('dfoot').innerHTML = ['GAO','GAD','GAF','GAG'].filter(f=>d.porFam[f]>0).map(f =>
+    '<tr>' +
+    '<td><span class="fb '+f+'">'+f+'</span></td>' +
+    '<td colspan="2" style="font-size:12px;color:var(--ink3)">'+FAM_NAMES[f]+'</td>' +
+    '<td style="text-align:right" class="mn"><strong>'+fCLP(d.porFam[f])+'</strong></td>' +
+    '<td style="text-align:right;font-size:11.5px">'+fPct(d.costoNeto>0?d.porFam[f]/d.costoNeto*100:0)+'</td>' +
+    '</tr>'
+  ).join('') +
+  '<tr><td colspan="3"><strong>COSTO NETO SERVICIO ACTUAL'+(d.unidades>1?' (× '+d.unidades+' unidades)':'')+'</strong></td>' +
+  '<td style="text-align:right" class="mn"><strong>'+fCLP(d.costoNeto)+'</strong></td></tr>';
+
+  renderDist(d.porFam, d.costoNeto);
+  $('cref').style.display = '';
+  $('ref_km').textContent  = d.km>0 ? fCLP(d.costoNeto/d.km/d.unidades) : '—';
+  $('ref_dia').textContent = d.dias>0 ? fCLP(d.costoNeto/d.dias/d.unidades) : '—';
+  $('ref_km_iva').textContent = d.km>0 ? fCLP((d.costoNeto*(1+d.util/100)*1.19)/d.km/d.unidades) : '—';
+}
+
+function renderDist(porFam, total) {
+  const cd=$('cdist');
+  if(total<=0){cd.style.display='none';return;}
+  cd.style.display='';
+  $('bdist').innerHTML = ['GAO','GAD','GAF','GAG'].filter(f=>porFam[f]>0).map(f => {
+    const pct=porFam[f]/total*100;
+    return '<div class="dbar-wrap">' +
+      '<div class="dbar-head">' +
+        '<div style="display:flex;align-items:center;gap:7px">' +
+          '<span class="fb '+f+'">'+f+'</span>' +
+          '<span style="font-size:12px">'+FAM_NAMES[f]+'</span>' +
+        '</div>' +
+        '<div style="display:flex;gap:12px;align-items:center">' +
+          '<span class="mn" style="font-size:12.5px">'+fCLP(porFam[f])+'</span>' +
+          '<span style="font-size:12px;color:var(--ink3);min-width:38px;text-align:right">'+fPct(pct)+'</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="dbar-track"><div class="dbar-fill" style="background:'+FAM_COLORS[f]+';width:'+pct+'%"></div></div>' +
+      '</div>';
+  }).join('');
+}
+
+function agregarServicio(){
+  const d = computarDraft();
+  if(!d){ toast('Selecciona un tipo de equipo','err'); return; }
+  if(!d.km && !d.dias){ toast('Ingresa km y/o días','err'); return; }
+  draftItems.push(d);
+  // reset campos del servicio (mantiene equipo y operación seleccionados por conveniencia)
+  $('c_desc').value=''; $('c_ori').value=''; $('c_dst').value='';
+  $('c_km').value=''; $('c_dias').value=''; $('c_uni').value=1;
+  $('c_descval').value=0; $('c_desctipo').value='monto';
+  calcularPreview();
+  renderItemsTable();
+  renderTotales();
+  toast('Servicio agregado ('+letra(draftItems.length-1)+')','ok');
+}
+
+function eliminarServicio(idx){
+  draftItems.splice(idx,1);
+  renderItemsTable();
+  renderTotales();
+}
+
+function renderItemsTable(){
+  const body = $('items_body');
+  $('items_count').textContent = draftItems.length + (draftItems.length===1?' servicio':' servicios');
+  if(!draftItems.length){
+    body.innerHTML = '<tr><td colspan="8" class="empty-items">Aún no agregas servicios — completa el formulario y presiona "+ Agregar Servicio"</td></tr>';
+    return;
+  }
+  body.innerHTML = draftItems.map((it,i)=>
+    '<tr>' +
+    '<td class="letra">'+letra(i)+'</td>' +
+    '<td>'+it.eqNombre+'<br><span class="tm" style="font-size:11px">'+it.centroNombre+'</span></td>' +
+    '<td style="font-size:11.5px">'+(it.origen||'—')+' → '+(it.destino||'—')+'</td>' +
+    '<td class="n">'+it.km+' km<br><span class="tm" style="font-size:11px">'+it.dias+' días</span></td>' +
+    '<td class="n mn">'+fCLP(it.precioVenta)+'</td>' +
+    '<td class="n mn">'+(it.descuentoMonto>0?('-'+fCLP(it.descuentoMonto)):'—')+'</td>' +
+    '<td class="n mn"><strong>'+fCLP(it.total)+'</strong></td>' +
+    '<td><button class="btn bd bsm" onclick="eliminarServicio('+i+')" title="Eliminar">✕</button></td>' +
+    '</tr>'
+  ).join('');
+}
+
+function renderTotales(){
+  const cn = draftItems.reduce((s,i)=>s+i.costoNeto,0);
+  const ut = draftItems.reduce((s,i)=>s+(i.precioVenta-i.costoNeto),0);
+  const neto = draftItems.reduce((s,i)=>s+i.precioVenta,0);
+  const desc = draftItems.reduce((s,i)=>s+i.descuentoMonto,0);
+  const iva = draftItems.reduce((s,i)=>s+i.iva,0);
+  const tot = draftItems.reduce((s,i)=>s+i.total,0);
+  $('r_cn').textContent = fCLP(cn);
+  $('r_ut_lbl').textContent = 'Utilidad';
+  $('r_ut').textContent = fCLP(ut);
+  $('r_neto').textContent = fCLP(neto-desc);
+  $('r_desc').textContent = desc>0 ? ('-'+fCLP(desc)) : '$0';
+  $('r_iva').textContent = fCLP(iva);
+  $('r_tot').textContent = fCLP(tot);
+}
+
+function limpiarCot() {
+  ['c_emp','c_rut','c_ctc','c_tel','c_mail','c_dir','c_com','c_ciu','c_desc','c_ori','c_dst'].forEach(id=>{const el=$(id);if(el)el.value='';});
+  $('c_eq').value=''; $('c_centro').value='faena'; $('c_km').value=''; $('c_dias').value='';
+  $('c_uni').value=1; $('c_descval').value=0; $('c_desctipo').value='monto';
+  $('c_mon').value='CLP'; $('c_vig').value=30; $('c_pago').value='30 días fecha factura';
+  $('c_tv').value='Transporte';
+  draftItems = [];
+  renderItemsTable();
+  renderTotales();
+  calcularPreview();
+  $('eq_label').textContent='—';
+  $('util_note').style.display='none';
+  initNum();
+}
+
+function guardarCot() {
+  const emp=($('c_emp').value||'').trim();
+  if(!emp){toast('Ingresa el nombre del cliente','err');return;}
+  if(!draftItems.length){toast('Agrega al menos un servicio a la cotización','err');return;}
+
+  const cn = draftItems.reduce((s,i)=>s+i.costoNeto,0);
+  const neto = draftItems.reduce((s,i)=>s+i.precioVenta,0);
+  const desc = draftItems.reduce((s,i)=>s+i.descuentoMonto,0);
+  const iva = draftItems.reduce((s,i)=>s+i.iva,0);
+  const tot = draftItems.reduce((s,i)=>s+i.total,0);
+
+  const cot={
+    id:Date.now(),
+    numero:$('c_num').value,
+    fecha:$('c_fec').value,
+    estado:'Borrador',
+    cliente:{empresa:emp,rut:$('c_rut').value,contacto:$('c_ctc').value,telefono:$('c_tel').value,email:$('c_mail').value,direccion:$('c_dir').value,comuna:$('c_com').value,ciudad:$('c_ciu').value},
+    items: JSON.parse(JSON.stringify(draftItems)),
+    resultado:{costoNeto:cn,precioNeto:neto-desc,descuento:desc,iva,total:tot},
+    conds:{vigencia:$('c_vig').value,moneda:$('c_mon').value,condPago:$('c_pago').value,tipoVenta:$('c_tv').value},
+  };
+
+  ST.cots.unshift(cot); ST.corr++; save(); initNum();
+  toast('Cotización guardada — '+cot.numero,'ok');
+
+  if(ST.cfg.gsActivo && ST.cfg.gsUrl){
+    enviarAGoogleSheets(cot);
+  }
+
+  draftItems = [];
+  show('prev');
+  setTimeout(()=>{populatePrev();$('psel').value=cot.id;loadPreview();},80);
+}
+
+/* ============================================================
+   Google Sheets — envía una fila por servicio a un Web App
+   de Apps Script (ver google-apps-script.gs)
+   ============================================================ */
+function filasParaSheet(cot){
+  const anio = (cot.fecha||'').slice(0,4);
+  return cot.items.map((it,i)=>({
+    numero: cot.numero, fecha: cot.fecha, anio: anio, cliente: cot.cliente.empresa,
+    tipoVenta: cot.conds.tipoVenta, maquina: it.eqNombre+' — '+it.centroNombre,
+    origen: it.origen, destino: it.destino, km: it.km, dias: it.dias,
+    unidad: 'Viajes', cantidad: it.unidades,
+    precioUnitario: Math.round(it.precioUnitario), descuento: Math.round(it.descuentoMonto),
+    precioTotalNeto: Math.round(it.precioNetoFinal), iva: Math.round(it.iva), precioFinal: Math.round(it.total),
+    contacto: cot.cliente.contacto, mail: cot.cliente.email, estado: cot.estado,
+    formaPago: cot.conds.condPago, oc: '', factura: '', observaciones: it.descripcion || '',
+  }));
+}
+
+function enviarAGoogleSheets(cot, silent){
+  const url = ST.cfg.gsUrl;
+  if(!url) return;
+  const payload = { token: TOKEN_CONECTOR, filas: filasParaSheet(cot) };
+  fetch(url, { method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) })
+    .then(()=>{ if(!silent) toast('Solicitud enviada — revisa la pestaña "BD Cotizaciones" para confirmar que llegó','ok'); })
+    .catch(()=>{ if(!silent) toast('No se pudo conectar con Google Sheets (revisa tu conexión o la URL configurada)','err'); });
+}
+
+function testGoogleSheets(){
+  const url = $('cfg_gsurl').value.trim();
+  if(!url){ toast('Ingresa la URL del Web App primero','err'); return; }
+  ST.cfg.gsUrl = url;
+  const cotPrueba = {
+    numero:'TEST', fecha:new Date().toISOString().split('T')[0],
+    cliente:{empresa:'Cliente de Prueba', contacto:'', email:''},
+    conds:{tipoVenta:'Transporte', condPago:'—'}, estado:'Prueba',
+    items:[{eqNombre:'Camioneta', centroNombre:'Faena', origen:'Prueba', destino:'Prueba', km:1, dias:1, descripcion:'Fila de prueba — puedes borrarla', unidades:1, precioUnitario:0, descuentoMonto:0, precioNetoFinal:0, iva:0, total:0}],
+  };
+  enviarAGoogleSheets(cotPrueba, true);
+  toast('Fila de prueba enviada a "BD Cotizaciones" (N° TEST) — revisa que haya llegado y bórrala después, es una fila real en tu historial','ok');
+}
+
+function renderHist() {
+  const bus=(($('hbus')||{}).value||'').toLowerCase();
+  const est=($('hest')||{}).value||'';
+  const lista=ST.cots.filter(c=>{
+    if(est&&c.estado!==est)return false;
+    if(bus&&!(c.cliente.empresa.toLowerCase().includes(bus)||c.numero.toLowerCase().includes(bus)))return false;
+    return true;
+  });
+  const cont=$('hcont'); if(!cont) return;
+  if(!lista.length){
+    cont.innerHTML='<div class="card" style="padding:40px;text-align:center;color:var(--ink4)"><div style="font-size:32px;margin-bottom:8px">📄</div><div>No hay cotizaciones'+(est||bus?' que coincidan':' aún')+'.</div></div>';
+    return;
+  }
+  const estSt={Borrador:'background:#f0f0f0;color:#555',Enviada:'background:var(--wab);color:var(--wa)',Aprobada:'background:var(--okb);color:var(--ok)',Rechazada:'background:var(--dab);color:var(--da)'};
+  cont.innerHTML=lista.map(c=>
+    '<div class="cr">' +
+    '<span class="nb2">'+c.numero+'</span>' +
+    '<div><div style="font-weight:600">'+c.cliente.empresa+'</div>' +
+    '<div class="tm" style="font-size:11.5px">'+c.items.length+' servicio'+(c.items.length===1?'':'s')+' · '+c.items.map(i=>i.eqNombre).join(', ')+'</div></div>' +
+    '<div class="tm" style="font-size:12px">'+(c.fecha||'—')+'</div>' +
+    '<div class="mn" style="font-weight:600">'+fCLP(c.resultado.total)+'</div>' +
+    '<div><select style="border:none;border-radius:10px;padding:3px 9px;font-size:11px;font-weight:700;cursor:pointer;'+(estSt[c.estado]||'')+'" onchange="cambEst('+c.id+',this.value)">'+
+      ['Borrador','Enviada','Aprobada','Rechazada'].map(s=>'<option'+(c.estado===s?' selected':'')+'>'+s+'</option>').join('')+
+    '</select></div>' +
+    '<div style="display:flex;gap:7px">' +
+    '<button class="btn bs bsm" onclick="verPrev('+c.id+')">👁 Ver</button>' +
+    '<button class="btn bd bsm" onclick="delCot('+c.id+')">✕</button>' +
+    '</div></div>'
+  ).join('');
+}
+
+function cambEst(id,estado){const c=ST.cots.find(x=>x.id===id);if(c){c.estado=estado;save();renderHist();toast('Estado: '+estado);}}
+function delCot(id){if(!confirm('¿Eliminar esta cotización?'))return;ST.cots=ST.cots.filter(c=>c.id!==id);save();renderHist();toast('Eliminada');}
+function verPrev(id){show('prev');setTimeout(()=>{populatePrev();$('psel').value=id;loadPreview();},80);}
+
+function populatePrev(){
+  const sel=$('psel');if(!sel)return;
+  const cur=sel.value;
+  sel.innerHTML='<option value="">— Seleccionar cotización —</option>'+
+    ST.cots.map(c=>'<option value="'+c.id+'">'+c.numero+' — '+c.cliente.empresa+' — '+fCLP(c.resultado.total)+'</option>').join('');
+  if(cur)sel.value=cur;
+}
+
+const COBROS_ADICIONALES = [
+  {n:'Sobreestadía', d:'Espera superior a 6 horas en origen o destino, desde la 7ª hora, cada 24 horas', f:'Cada 24 hrs desde 7ª hora', p:'$320.000'},
+  {n:'Falso Flete', d:'Presentación del equipo sin carga por orden del cliente', f:'Cada vez', p:'80% del valor del ítem'},
+  {n:'Movimiento Interno', d:'Dos o más lugares de carga/descarga', f:'Por cada movimiento adicional', p:'25% del valor del ítem'},
+  {n:'Cancelación Espontánea', d:'Cancelación dentro de las últimas 24 horas', f:'Cada vez', p:'$90.000'},
+  {n:'Medición Errónea', d:'Dimensiones o pesos no corresponden a lo declarado', f:'Cada vez', p:'$90.000'},
+  {n:'Doble Conductor', d:'El plazo del servicio excede el tiempo legal de conducción', f:'Cada vez', p:'No Aplica'},
+  {n:'Carga de Alto Valor', d:'Carga que excede UF 2.000 de valor declarado', f:'Cada UF 1.000 o fracción', p:'No Aplica'},
+];
+
+function loadPreview(){
+  const id=parseInt(($('psel')||{}).value||'');
+  const c=ST.cots.find(x=>x.id===id);
+  const cont=$('pcont');if(!cont)return;
+  if(!c){
+    cont.innerHTML='<div class="card" style="padding:60px;text-align:center;color:var(--ink4)"><div style="font-size:42px;margin-bottom:10px">◻</div><div style="font-size:15px">Selecciona una cotización</div></div>';
+    return;
+  }
+  const cfg=ST.cfg||{};
+  const hoy=new Date(c.fecha?c.fecha+'T12:00:00':Date.now());
+  const vence=new Date(hoy);vence.setDate(vence.getDate()+parseInt(c.conds.vigencia||30));
+  const razon=cfg.empresa||'Sociedad de Transportes Frankar Ltda.';
+  const rut=cfg.rut||'76.060.284-1';
+  const rubro=cfg.rubro||'Transporte de Carga en Faena · Transporte de Carga Interurbano · Transporte de Carga Indivisible — Arriendo de Maquinarias — Taller Mecánico y Gestión de Flota';
+  const dir=cfg.dir||'Ruta 5 Norte Km. 226 · Camino Interior Los Vilos · Región de Coquimbo · Chile';
+  const contactoLinea = [cfg.tel?('Teléfono: '+cfg.tel):'', cfg.cel?('Celular: '+cfg.cel):'', cfg.mail?('Mail: '+cfg.mail):'', cfg.web?('Web: '+cfg.web):''].filter(Boolean).join(' · ');
+
+  let html = '<div class="qdoc">';
+  html += '<div class="qbanner"><div>';
+  html += '<img class="logo-img" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAgsAAAF0CAMAAACaHYp1AAAAZlBMVEX///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////+rG8stAAAAIXRSTlMABgwSGyEqMDk/SFFXYGZvdXuEjZafqLG6w8nP2OHn7fbMYsOvAAAZ+0lEQVR42u2da6OyrBKG8azZuexkreL//8mVHU1BGUBDmvvDfvfTMtPhchiGAQlBoVAoFAqFQqFQKBQKhUKhUCgUCoVCoQxQiiZAPUXRBKgnCwgD6tlJ0AkaAfV0DDEaAXWTR6mDVkA9HMMBjYC6yacYP6JejgFDBtSLBZqgGVBXuQUMLtoB9XAMOzQD6qqkgGGMdkA9HAMdoR1QTxhwzhL1ZIEGaAgUcbCXQH06Bsw/ogiJ7iws0RKop2PA+BFFRg8YcGYC9XQMGDKg3jCEaApk4SGsf0QFTximaAt0DOgZUA85FD0DquoYMM3w8/LeMPhojR9X8oYBa95+Xec3DJhmwJCBYgISVWVhi9bA8PGpGZrjt7VDGFCMXgLTDAjDW2s0x08rK8OQoT3QMTy1QHv8SKszP00/YMBs9G9oKeAYcDTxK44hbHcMCMOvhAYCvQSOJn6EhVCgl8CY4Rc04rRzUoEBN2f4jfEjs1LhUIEBM5A/wUIi0ksgDPZrwosG4ioMaKtfcAzsZt5WYZijsX6ABaGxBOYZrNeYP2aswYBraH7AMQj2EhgzWK550ciRmGPAWctfcAzMgWVahwELYu1ngb2fn48w/CIM7L15/uowYNLJfscQC4YMdIMWs1d5AwwThOEXHcNU1DHgaMJ6FsR7CXpCm9mqBAwDZp2s1bmpfslDGH6xl2C38IHFwh6NZjkLYnUtuFmHzfIbM0kuGwZcX2e3YxCepSqE7z62Ul5zinnChgEXTtjtGKYAx0CPaDgLNX+17wgCwxktZ7NjYMMw4sCAL6+zGwYC8Qx0haazmAV2/LjnwZCj7SyGgV39fkYYfpAFjmegXOE6GothCIEwYARpLwvA+BHTTjbDwI4BQj4MOIttl5xy2zqsIxYNMOBrTq3tJdirJ3cNMDhoQIvktcNwaYABi2JtdQyQ+kcM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" alt="Grupo Frankar">';
+  html += '<div class="qrazon">'+razon+' — RUT: '+rut+'</div>';
+  html += '<div class="qrubro">'+rubro+'</div>';
+  html += '<div class="qdircontacto">'+dir+(contactoLinea?'<br>'+contactoLinea:'')+'</div>';
+  html += '<div class="qslogan">"Nuestro destino es una nueva forma de recorrer el camino"</div>';
+  html += '</div><div class="qmb">';
+  html += '<div class="qtitle">Cotización</div>';
+  html += '<div class="qnum">'+c.numero+'</div>';
+  html += '<div class="qd">Fecha: '+fFecha(hoy)+'</div>';
+  html += '<div class="qd">Válida hasta: '+fFecha(vence)+'</div>';
+  html += '<div class="qd" style="margin-top:5px;font-weight:700;color:var(--terra)">'+c.estado+'</div>';
+  html += '</div></div>';
+
+  html += '<div class="qbody">';
+
+  html += '<div class="qst-wrap"><div class="qst">Datos del Cliente</div></div>';
+  html += '<div class="qcg" style="margin-top:10px">';
+  html += '<span>Empresa:</span><strong>'+c.cliente.empresa+'</strong>';
+  html += '<span>RUT:</span><strong>'+(c.cliente.rut||'—')+'</strong>';
+  html += '<span>Contacto:</span><strong>'+(c.cliente.contacto||'—')+'</strong>';
+  html += '<span>Teléfono:</span><strong>'+(c.cliente.telefono||'—')+'</strong>';
+  html += '<span>Email:</span><strong>'+(c.cliente.email||'—')+'</strong>';
+  html += '<span>Dirección:</span><strong>'+(c.cliente.direccion||'—')+'</strong>';
+  html += '<span>Comuna:</span><strong>'+(c.cliente.comuna||'—')+'</strong>';
+  html += '<span>Ciudad:</span><strong>'+(c.cliente.ciudad||'—')+'</strong>';
+  html += '</div>';
+
+  html += '<div class="qst-wrap"><div class="qst">Detalle del Servicio</div></div>';
+  html += '<table class="qit" style="margin-top:10px">';
+  html += '<colgroup><col style="width:6%"><col style="width:22%"><col style="width:11%"><col style="width:11%"><col style="width:9%"><col style="width:7%"><col style="width:13%"><col style="width:9%"><col style="width:12%"></colgroup>';
+  html += '<thead><tr>';
+  html += '<th>Ítem</th><th>Descripción de Carga y Servicio</th><th>Origen</th><th>Destino</th><th>Unidad</th><th class="n">Cant.</th><th class="n">Precio Unitario</th><th class="n">Descuento</th><th class="n">Precio Total</th>';
+  html += '</tr></thead><tbody>';
+  c.items.forEach((it,i)=>{
+    const descripcion = it.eqNombre+' — '+it.centroNombre+(it.descripcion?(' · '+it.descripcion):'');
+    html += '<tr><td><strong>'+letra(i)+'</strong></td><td>'+descripcion+'</td><td>'+(it.origen||'—')+'</td><td>'+(it.destino||'—')+'</td><td>Servicio</td><td class="n">'+it.unidades+'</td><td class="n">'+fCLP(it.precioUnitario)+'</td><td class="n">'+(it.descuentoMonto>0?fCLP(it.descuentoMonto):'$0')+'</td><td class="n"><strong>'+fCLP(it.precioNetoFinal)+'</strong></td></tr>';
+  });
+  html += '</tbody></table>';
+  html += '<div style="font-size:10.5px;color:var(--ink4);margin-top:5px">Ver Cobros Adicionales en caso de existir.</div>';
+
+  html += '<div class="qpay">';
+  html += '<div class="qpaybox"><b>Datos de Transferencia</b><br>';
+  html += 'Banco: '+(cfg.banco||'—')+'<br>';
+  html += 'Tipo de Cuenta: '+(cfg.tcta||'—')+'<br>';
+  html += 'N° de Cuenta: '+(cfg.ncta||'—')+'<br>';
+  html += 'RUT: '+rut+'<br>';
+  html += 'Correo confirmación: '+(cfg.mailpago||'—')+'<br><br>';
+  html += '<b>Condición de Pago:</b> '+c.conds.condPago+'</div>';
+  html += '<div class="qtb">';
+  html += '<div class="qtrow"><span>Precio Neto (Afecto)</span><span class="mn">'+fCLP(c.resultado.precioNeto)+'</span></div>';
+  if(c.resultado.descuento>0) html += '<div class="qtrow"><span>Descuento</span><span class="mn">-'+fCLP(c.resultado.descuento)+'</span></div>';
+  html += '<div class="qtrow"><span>IVA (19%)</span><span class="mn">'+fCLP(c.resultado.iva)+'</span></div>';
+  html += '<div class="qtrow total"><span>TOTAL — '+c.conds.moneda+'</span><span class="qv">'+fCLP(c.resultado.total)+'</span></div>';
+  html += '</div>';
+  html += '</div>';
+
+  html += '<div class="qst-wrap"><div class="qst">Letra Chica</div></div>';
+  html += '<div class="qcond-cols" style="margin-top:10px">';
+  html += '<div>';
+  html += '<div class="qsubh">Condiciones Generales</div>';
+  html += '<ul class="qchecklist">';
+  [['Conductor u Operador',true],['Combustible',true],['Seguro de Equipo',true],['Seguro de Carga hasta 2.000 UF',true],['GPS',true],['Disponibilidad Inmediata',true],['Horas Mínimas: 6 hr. diarias',true],['Mantenciones Preventivas',true]].forEach(([t,v])=>{
+    html += '<li><span class="'+(v?'yes':'no')+'">'+(v?'✓':'—')+'</span><span>'+t+'</span></li>';
+  });
+  html += '</ul>';
+  html += '<div class="qsubh">Condiciones en Faena</div>';
+  html += '<ul class="qchecklist">';
+  [['Pases de Ingreso a Faena',true],['Acreditaciones',true],['Posicionamiento de Equipo en Origen',true],['Carga en Origen y Descarga en Destino',true]].forEach(([t,v])=>{
+    html += '<li><span class="'+(v?'yes':'no')+'">'+(v?'✓':'—')+'</span><span>'+t+'</span></li>';
+  });
+  html += '</ul>';
+  html += '</div>';
+  html += '<div>';
+  html += '<div class="qsubh">Cobros Adicionales</div>';
+  html += '<table class="qadic"><thead><tr><th>Condición</th><th>Frecuencia</th><th class="n">Precio Neto</th></tr></thead><tbody>';
+  COBROS_ADICIONALES.forEach(r=>{
+    html += '<tr><td><strong>'+r.n+'</strong><br><span style="color:var(--ink4)">'+r.d+'</span></td><td>'+r.f+'</td><td class="n">'+r.p+'</td></tr>';
+  });
+  html += '</tbody></table>';
+  html += '</div>';
+  html += '</div>';
+
+  html += '<div class="qobs"><strong>Observaciones Importantes</strong><br><br>';
+  html += '1) Los servicios que no se ejecuten por responsabilidad del cliente (retrasos, cancelaciones espontáneas, disponibilidad de máquinas y personal para cargar o descargar) serán de cargo del cliente de acuerdo a la tabla de cobros adicionales.<br>';
+  html += '2) La carga debe ser entregada por el cliente en condiciones adecuadas de embalaje y estiba. En caso de existir algún siniestro asociado a la carga imputable a Frankar, se reembolsará el menor monto entre el costo de reparación y el monto declarado en la guía de carga.<br>';
+  html += '3) En caso de robo, hurto o pérdida de carga, Frankar se hará responsable sólo de la carga declarada en la guía de despacho emitida por el dueño de la carga.';
+  html += '</div>';
+
+  html += '</div>'; // qbody
+
+  html += '<div class="qft"><div>Esta cotización tiene validez por '+(c.conds.vigencia||30)+' días. Ante cualquier duda contactar a '+(cfg.vend||'nuestro equipo comercial')+(cfg.vendtel?(' — '+cfg.vendtel):'')+(cfg.vendmail?(' — '+cfg.vendmail):'')+'.</div>';
+  html += '<div class="qdept">Departamento Comercial · Unidad Comercial</div></div>';
+
+  html += '</div>'; // qdoc
+
+  cont.innerHTML = html;
+}
+
+function loadCfg(){
+  const cfg=ST.cfg||{};
+  ['emp','rut','rubro','dir','tel','cel','mail','web','pfx','banco','tcta','ncta','mailpago','vend','vendtel','vendmail'].forEach(k=>{const el=$('cfg_'+k);if(el)el.value=cfg[k]||'';});
+  const c0=$('cfg_corr0');if(c0)c0.value=cfg.corr0||1;
+  $('cfg_gsurl').value = cfg.gsUrl||'';
+  $('cfg_gsactivo').checked = !!cfg.gsActivo;
+  updateGsStatus();
+}
+function updateGsStatus(){
+  const st=$('gs_status');
+  if(ST.cfg.gsActivo && ST.cfg.gsUrl){ st.textContent='Activo'; st.className='gsheet-status on'; }
+  else { st.textContent='Inactivo'; st.className='gsheet-status off'; }
+}
+function saveConfig(){
+  ST.cfg={
+    empresa:$('cfg_emp').value, rut:$('cfg_rut').value, rubro:$('cfg_rubro').value, dir:$('cfg_dir').value,
+    tel:$('cfg_tel').value, cel:$('cfg_cel').value, mail:$('cfg_mail').value, web:$('cfg_web').value,
+    pfx:$('cfg_pfx').value||'', corr0:parseInt($('cfg_corr0').value)||1,
+    banco:$('cfg_banco').value, tcta:$('cfg_tcta').value, ncta:$('cfg_ncta').value, mailpago:$('cfg_mailpago').value,
+    vend:$('cfg_vend').value, vendtel:$('cfg_vendtel').value, vendmail:$('cfg_vendmail').value,
+    gsUrl:$('cfg_gsurl').value.trim(), gsActivo:$('cfg_gsactivo').checked,
+  };
+  if(ST.corr < ST.cfg.corr0) ST.corr = ST.cfg.corr0;
+  save();toast('Configuración guardada');initNum();fetchCostosRemotos();updateGsStatus();
+}
+function exportCotJSON(){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(ST.cots,null,2)],{type:'application/json'}));
+  a.download='cotizaciones_frankar.json';a.click();toast('Exportado');
+}
+function resetAll(){
+  if(!confirm('¿Borrar TODOS los datos locales?'))return;
+  if(!confirm('Confirmar: ¿borrar todo?'))return;
+  localStorage.removeItem('frankar_cotizador_v2');
+  ST={cots:[],corr:1,cfg:{}};
+  save();renderHist();toast('Datos borrados');
+}
+function initNum(){
+  const pfx=(ST.cfg&&ST.cfg.pfx)||'';
+  const num = String(ST.corr).padStart(5,'0');
+  $('c_num').value = pfx ? (pfx+'-'+num) : num;
+  // Si hay un conector de Google Sheets configurado, le pregunta cuál es el
+  // próximo número real (continuando el correlativo del historial en la
+  // planilla) y reemplaza el número local en cuanto responde. Si falla o no
+  // hay conector configurado, se mantiene el correlativo local de respaldo.
+  const gsUrl = ST.cfg && ST.cfg.gsUrl;
+  if(gsUrl){
+    fetch(gsUrl + (gsUrl.includes('?') ? '&' : '?') + 'action=nextNumero')
+      .then(r=>r.json())
+      .then(data=>{
+        if(data && data.ok && data.next){
+          const el=$('c_num');
+          if(el) el.value = pfx ? (pfx+'-'+data.next) : data.next;
+        }
+      })
+      .catch(()=>{ /* sin conexión o conector aún no desplegado: se mantiene el correlativo local */ });
+  }
+}
+function aplicarModo(){
+  if(MODE==='simple'){
+    document.body.classList.add('simple-mode');
+    document.title = 'Cotizador Operativo — Grupo Frankar';
+    $('hdr_tagline').textContent = 'Cotizador Operativo';
+    $('cot_h1').textContent = 'Nueva Cotización';
+    $('rb_totales').classList.remove('admin-cols');
+    $('rb_totales').classList.add('simple-cols');
+  } else {
+    $('rb_totales').classList.add('admin-cols');
+  }
+}
+document.addEventListener('DOMContentLoaded',()=>{
+  load();
+  poblarEquipos();
+  aplicarModo();
+  $('c_fec').value=new Date().toISOString().split('T')[0];
+  initNum();
+  fetchCostosRemotos();
+  renderItemsTable();
+  renderTotales();
+});
+</script>
+</body>
+</html>
