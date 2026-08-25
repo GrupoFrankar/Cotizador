@@ -47,6 +47,7 @@ label{font-size:10.5px;font-weight:700;color:var(--ink3);text-transform:uppercas
 input,select,textarea{width:100%;padding:8px 10px;border:1.5px solid var(--rule);border-radius:var(--r);font-family:'Inter',sans-serif;font-size:13px;color:var(--ink);background:var(--sur);outline:none;transition:border-color .15s,box-shadow .15s}
 input:focus,select:focus,textarea:focus{border-color:var(--azul);box-shadow:0 0 0 3px rgba(36,48,60,.1)}
 input[readonly]{background:var(--rule2);color:var(--ink3)}
+input.invalid,select.invalid,textarea.invalid{border-color:var(--terra);box-shadow:0 0 0 3px rgba(156,72,24,.14)}
 textarea{resize:vertical;min-height:56px}
 input[type=number]{font-variant-numeric:tabular-nums}
 .btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border:none;border-radius:var(--r);font-family:'Inter',sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap}
@@ -796,15 +797,57 @@ function limpiarCot() {
   calcularPreview();
   $('eq_label').textContent='—';
   $('util_note').style.display='none';
-  initNum();
+    limpiarInvalidos();
+initNum();
+}
+
+// Campos obligatorios de "Datos del Cliente" y "Datos de la Cotización" que
+// deben estar completos antes de poder guardar (no se exige nada del
+// formulario "Agregar Servicio": eso ya se valida al presionar
+// "+ Agregar Servicio" y sus datos quedan dentro de cada item).
+const CAMPOS_REQUERIDOS_COT = [
+  {id:'c_emp', label:'Razón Social / Nombre'},
+  {id:'c_rut', label:'RUT'},
+  {id:'c_ctc', label:'Contacto'},
+  {id:'c_tel', label:'Teléfono'},
+  {id:'c_mail', label:'Email'},
+  {id:'c_dir', label:'Dirección'},
+  {id:'c_com', label:'Comuna'},
+  {id:'c_ciu', label:'Ciudad'},
+  {id:'c_fec', label:'Fecha'},
+  {id:'c_vig', label:'Vigencia (días)'},
+  {id:'c_mon', label:'Moneda'},
+  {id:'c_pago', label:'Condición de Pago'},
+  {id:'c_tv', label:'Tipo de Venta'},
+];
+
+function limpiarInvalidos(){
+  CAMPOS_REQUERIDOS_COT.forEach(c=>{const el=$(c.id); if(el) el.classList.remove('invalid');});
+}
+
+function validarCamposCot(){
+  limpiarInvalidos();
+  const faltantes=[];
+  CAMPOS_REQUERIDOS_COT.forEach(c=>{
+    const el=$(c.id);
+    if(!el) return;
+    if(!(el.value||'').trim()){ faltantes.push(c); el.classList.add('invalid'); }
+  });
+  return faltantes;
 }
 
 function guardarCot() {
-  const emp=($('c_emp').value||'').trim();
-  if(!emp){toast('Ingresa el nombre del cliente','err');return;}
+  const faltantes = validarCamposCot();
+  if(faltantes.length){
+    toast('Completa antes de guardar: '+faltantes.map(c=>c.label).join(', '),'err');
+    const el=$(faltantes[0].id);
+    if(el){ el.scrollIntoView({behavior:'smooth', block:'center'}); el.focus(); }
+    return;
+  }
   if(!draftItems.length){toast('Agrega al menos un servicio a la cotización','err');return;}
 
-  const cn = draftItems.reduce((s,i)=>s+i.costoNeto,0);
+    const emp=($('c_emp').value||'').trim();
+const cn = draftItems.reduce((s,i)=>s+i.costoNeto,0);
   const neto = draftItems.reduce((s,i)=>s+i.precioVenta,0);
   const desc = draftItems.reduce((s,i)=>s+i.descuentoMonto,0);
   const iva = draftItems.reduce((s,i)=>s+i.iva,0);
@@ -1123,6 +1166,14 @@ document.addEventListener('DOMContentLoaded',()=>{
   fetchCostosRemotos();
   renderItemsTable();
   renderTotales();
+    // En cuanto el usuario completa un campo obligatorio, le saca la marca de
+    // error para que no quede marcado en rojo después de corregirlo.
+    CAMPOS_REQUERIDOS_COT.forEach(c=>{
+      const el=$(c.id);
+      if(!el) return;
+      el.addEventListener('input', ()=>{ if((el.value||'').trim()) el.classList.remove('invalid'); });
+      el.addEventListener('change', ()=>{ if((el.value||'').trim()) el.classList.remove('invalid'); });
+    });
 });
 </script>
 </body>
