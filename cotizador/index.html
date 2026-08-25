@@ -501,20 +501,32 @@ function sumaComp(keys){
 const EQUIPOS = {
   'camioneta':     { nombre:'Camioneta',                unidad:'Km', util:25, faena:{gaov:217, gaof:6151},  matriz:{gaov:177, gaof:8286},  gafDir:47535  },
   'camion-simple-34':   { nombre:'Camión Simple 3-4T',   unidad:'Km', util:25, faena:{gaov:225, gaof:5215},  matriz:{gaov:167, gaof:13571}, gafDir:31380  },
-  'camion-simple-1014': { nombre:'Camión Simple 10-14T', unidad:'Km', util:25, faena:{gaov:348, gaof:5215},  matriz:{gaov:238, gaof:13571}, gafDir:52424  },
+  'camion-simple-1014': { nombre:'Camión Simple 10-14T', unidad:'Km', util:25, faena:{gaov:429, gaof:5215},  matriz:{gaov:345, gaof:13571}, gafDir:31380  },
   'camion-tolva':  { nombre:'Camión Tolva',               unidad:'Km', util:25, faena:{gaov:1418,gaof:9288},  matriz:{gaov:602, gaof:5028},  gafDir:164091 },
   'tracto':        (()=>{ const c=sumaComp(['tracto']);   return { nombre:'Tracto',                 unidad:'Km', util:25, faena:c.faena, matriz:c.matriz, gafDir:c.gafDir }; })(),
   'tracto-batea':  (()=>{ const c=sumaComp(['tracto','batea']);    return { nombre:'Tracto + Batea',            unidad:'Km', util:25, faena:c.faena, matriz:c.matriz, gafDir:c.gafDir }; })(),
-  'tracto-cb35':   (()=>{ const c=sumaComp(['tracto','camabaja']); return { nombre:'Tracto + Cama Baja 35T',    unidad:'Km', util:35, faena:c.faena, matriz:c.matriz, gafDir:c.gafDir }; })(),
-  'tracto-cb45':   (()=>{ const c=sumaComp(['tracto','camabaja']); return { nombre:'Tracto + Cama Baja 45T',    unidad:'Km', util:45, faena:c.faena, matriz:c.matriz, gafDir:c.gafDir }; })(),
-  'tracto-cb80':   (()=>{ const c=sumaComp(['tracto','camabaja']); return { nombre:'Tracto + Cama Baja 80T',    unidad:'Km', util:80, faena:c.faena, matriz:c.matriz, gafDir:c.gafDir }; })(),
+  // Tracto + Cama Baja 35T: usa el tracto estándar (mismo que Tracto solo / Tracto+Rampla/Batea).
+  'tracto-cb35':   (()=>{ const c=sumaComp(['tracto','camabaja']); return { nombre:'Tracto + Cama Baja 35T',    unidad:'Km', util:35, faena:c.faena, matriz:c.matriz, gafDir:c.gafDir, gadDirDia:{ faena:100305, matriz:93441 } }; })(),
+  // Tracto + Cama Baja 45T y 80T: usan un tracto de mayor tonelaje (GAOV más alto), confirmado
+  // en planilla Valorizador → pestañas "T+CB45-M" y "T+CB80-M" (Matriz). El valor Faena de GAOV
+  // NO tiene pestaña de referencia en la planilla — se estimó proporcionalmente al alza que
+  // muestra el tracto estándar entre Matriz y Faena (852/789 ≈ 1,08). Pendiente de confirmar
+  // con Frankar si se agrega una pestaña "T+CB45-F"/"T+CB80-F" a la planilla.
+  'tracto-cb45':   { nombre:'Tracto + Cama Baja 45T', unidad:'Km', util:45,
+                      faena:  { gaov: 1064 + COMP.camabaja.faena.gaov,  gaof: COMP.tracto.faena.gaof  + COMP.camabaja.faena.gaof },
+                      matriz: { gaov:  985 + COMP.camabaja.matriz.gaov, gaof: COMP.tracto.matriz.gaof + COMP.camabaja.matriz.gaof },
+                      gafDir: 116267 + COMP.camabaja.gafDir, gadDirDia:{ faena:100305, matriz:93441 } },
+  'tracto-cb80':   { nombre:'Tracto + Cama Baja 80T', unidad:'Km', util:80,
+                      faena:  { gaov: 1296 + COMP.camabaja.faena.gaov,  gaof: COMP.tracto.faena.gaof  + COMP.camabaja.faena.gaof },
+                      matriz: { gaov: 1200 + COMP.camabaja.matriz.gaov, gaof: COMP.tracto.matriz.gaof + COMP.camabaja.matriz.gaof },
+                      gafDir: 116267 + COMP.camabaja.gafDir, gadDirDia:{ faena:100305, matriz:93441 } },
   'tracto-rampla': (()=>{ const c=sumaComp(['tracto','rampla']);   return { nombre:'Tracto + Rampla',           unidad:'Km', util:25, faena:c.faena, matriz:c.matriz, gafDir:c.gafDir }; })(),
 };
 
 // Debe coincidir EXACTO con TOKEN_SEGURIDAD en google-apps-script.gs — sirve
 // para que el conector rechace solicitudes de escritura que no vengan de
 // este cotizador (ver comentario de seguridad al inicio del .gs).
-const TOKEN_CONECTOR = 'frankar-cotizador-2026-x7k2';
+const TOKEN_CONECTOR = 'frankar-bb17762a2df3b1e0';
 
 // Los valores de arriba (faena/matriz/gafDir) son un RESPALDO local por si
 // no hay conector configurado o falla la conexión. Cuando hay un conector
@@ -616,11 +628,14 @@ function computarDraft(){
   const descVal  = parseFloat($('c_descval').value) || 0;
 
   const gaov = eq[centroKey].gaov, gaof = eq[centroKey].gaof;
+  // Algunos equipos (ej. Tracto + Cama Baja) usan un costo de conductor por día distinto al
+  // estándar del Centro de Negocio — si el equipo define gadDirDia propio, se usa ese.
+  const gadDirDia = (eq.gadDirDia ? eq.gadDirDia[centroKey] : centro.gadDirDia);
 
   const lineas = [
     { familia:'GAO', tipo:'dir', concepto:'GAO Variable (Km)', nota: fCLP(gaov)+'/km · '+centro.nombre, base: gaov*km, pct:1.0, subtotal: gaov*km },
     { familia:'GAO', tipo:'dir', concepto:'GAO Fijo (Día)',    nota: fCLP(gaof)+'/día · '+centro.nombre, base: gaof*dias, pct:1.0, subtotal: gaof*dias },
-    { familia:'GAD', tipo:'dir', concepto:'GAD Directo — Conductor (Día)', nota: fCLP(centro.gadDirDia)+'/día · '+centro.nombre, base: centro.gadDirDia*dias, pct:1.0, subtotal: centro.gadDirDia*dias },
+    { familia:'GAD', tipo:'dir', concepto:'GAD Directo — Conductor (Día)', nota: fCLP(gadDirDia)+'/día · '+centro.nombre, base: gadDirDia*dias, pct:1.0, subtotal: gadDirDia*dias },
     { familia:'GAD', tipo:'ind', concepto:'GAD Indirectos (Día)', nota:'Pool '+fCLP(centro.gadIndPool)+' × 0,35% · '+centro.nombre, base: centro.gadIndPool*PCT_IND*dias, pct:PCT_IND, subtotal: centro.gadIndPool*PCT_IND*dias },
     { familia:'GAF', tipo:'dir', concepto:'GAF Directos (Día)', nota: fCLP(eq.gafDir)+'/día', base: eq.gafDir*dias, pct:1.0, subtotal: eq.gafDir*dias },
     { familia:'GAF', tipo:'ind', concepto:'GAF Indirectos (Día)', nota:'Pool '+fCLP(centro.gafIndPool)+' × 0,35% · '+centro.nombre, base: centro.gafIndPool*PCT_IND*dias, pct:PCT_IND, subtotal: centro.gafIndPool*PCT_IND*dias },
