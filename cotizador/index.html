@@ -506,7 +506,7 @@ const EQUIPOS = {
   'camion-tolva':  { nombre:'Camión Tolva',               unidad:'Km', util:25, faena:{gaov:1418,gaof:9288},  matriz:{gaov:602, gaof:5028},  gafDir:164091 },
   'tracto':        (()=>{ const c=sumaComp(['tracto']);   return { nombre:'Tracto',                 unidad:'Km', util:25, faena:c.faena, matriz:c.matriz, gafDir:c.gafDir }; })(),
   'tracto-batea':  (()=>{ const c=sumaComp(['tracto','batea']);    return { nombre:'Tracto + Batea',            unidad:'Km', util:25, faena:c.faena, matriz:c.matriz, gafDir:c.gafDir }; })(),
-  // Tracto + Cama Baja 35T: usa el tracto estándar (mismo que Tracto solo / Tracto+Rampla/Batea).
+    // Tracto + Cama Baja 35T: usa el tracto estándar (mismo que Tracto solo / Tracto+Rampla/Batea).
   'tracto-cb35':   (()=>{ const c=sumaComp(['tracto','camabaja']); return { nombre:'Tracto + Cama Baja 35T',    unidad:'Km', util:35, faena:c.faena, matriz:c.matriz, gafDir:c.gafDir, gadDirDia:{ faena:100305, matriz:93441 } }; })(),
   // Tracto + Cama Baja 45T y 80T: usan un tracto de mayor tonelaje (GAOV más alto), confirmado
   // en planilla Valorizador → pestañas "T+CB45-M" y "T+CB80-M" (Matriz). El valor Faena de GAOV
@@ -797,8 +797,8 @@ function limpiarCot() {
   calcularPreview();
   $('eq_label').textContent='—';
   $('util_note').style.display='none';
-    limpiarInvalidos();
-initNum();
+  limpiarInvalidos();
+  initNum();
 }
 
 // Campos obligatorios de "Datos del Cliente" y "Datos de la Cotización" que
