@@ -501,7 +501,7 @@ function sumaComp(keys){
 const EQUIPOS = {
   'camioneta':     { nombre:'Camioneta',                unidad:'Km', util:25, faena:{gaov:217, gaof:6151},  matriz:{gaov:177, gaof:8286},  gafDir:47535  },
   'camion-simple-34':   { nombre:'Camión Simple 3-4T',   unidad:'Km', util:25, faena:{gaov:225, gaof:5215},  matriz:{gaov:167, gaof:13571}, gafDir:31380  },
-  'camion-simple-1014': { nombre:'Camión Simple 10-14T', unidad:'Km', util:25, faena:{gaov:429, gaof:5215},  matriz:{gaov:345, gaof:13571}, gafDir:52424  },
+  'camion-simple-1014': { nombre:'Camión Simple 10-14T', unidad:'Km', util:25, faena:{gaov:429, gaof:5215},  matriz:{gaov:345, gaof:13571}, gafDir:31380  },
   'camion-tolva':  { nombre:'Camión Tolva',               unidad:'Km', util:25, faena:{gaov:1418,gaof:9288},  matriz:{gaov:602, gaof:5028},  gafDir:164091 },
   'tracto':        (()=>{ const c=sumaComp(['tracto']);   return { nombre:'Tracto',                 unidad:'Km', util:25, faena:c.faena, matriz:c.matriz, gafDir:c.gafDir }; })(),
   'tracto-batea':  (()=>{ const c=sumaComp(['tracto','batea']);    return { nombre:'Tracto + Batea',            unidad:'Km', util:25, faena:c.faena, matriz:c.matriz, gafDir:c.gafDir }; })(),
