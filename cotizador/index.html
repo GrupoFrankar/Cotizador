@@ -435,7 +435,7 @@ input[type=number]{font-variant-numeric:tabular-nums}
         <div class="cb">
           <div style="display:grid;gap:11px">
             <div style="background:var(--rule2);border-radius:7px;padding:11px 13px;font-size:11.5px;line-height:1.7;color:var(--ink2)">
-              Cada cotización guardada se envía como filas (una por servicio) directamente a tu pestaña <strong>BD Cotizaciones</strong>, mediante un Web App de Apps Script. Ese mismo conector también entrega el número de cotización consecutivo y los costos vigentes (leídos en vivo desde la pestaña Value de la planilla Valorizador). Pide el archivo <strong>google-apps-script.gs</strong> y las instrucciones de despliegue — una vez desplegado, pega aquí la URL que entrega Google.
+              Cada cotización guardada se envía como filas (una por servicio) directamente a tu pestaña <strong>BD Cotizaciones</strong>, mediante un Web App de Apps Script. Ese mismo conector también entrega el número de cotización consecutivo y los costos vigentes (leídos en vivo desde la pestaña Value de la planilla Valorizador). La URL del conector ya viene fija de fábrica en este cotizador — funciona en cualquier navegador o equipo sin configurar nada. Solo cambia el campo de abajo si el conector fue redesplegado con una URL nueva.
             </div>
             <div class="fg"><label>URL del Web App (Apps Script)</label><input type="text" id="cfg_gsurl" placeholder="https://script.google.com/macros/s/XXXX/exec"></div>
             <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-weight:500;color:var(--ink2);font-size:12.5px;cursor:pointer">
@@ -506,7 +506,7 @@ const EQUIPOS = {
   'camion-tolva':  { nombre:'Camión Tolva',               unidad:'Km', util:25, faena:{gaov:1418,gaof:9288},  matriz:{gaov:602, gaof:5028},  gafDir:164091 },
   'tracto':        (()=>{ const c=sumaComp(['tracto']);   return { nombre:'Tracto',                 unidad:'Km', util:25, faena:c.faena, matriz:c.matriz, gafDir:c.gafDir }; })(),
   'tracto-batea':  (()=>{ const c=sumaComp(['tracto','batea']);    return { nombre:'Tracto + Batea',            unidad:'Km', util:25, faena:c.faena, matriz:c.matriz, gafDir:c.gafDir }; })(),
-    // Tracto + Cama Baja 35T: usa el tracto estándar (mismo que Tracto solo / Tracto+Rampla/Batea).
+  // Tracto + Cama Baja 35T: usa el tracto estándar (mismo que Tracto solo / Tracto+Rampla/Batea).
   'tracto-cb35':   (()=>{ const c=sumaComp(['tracto','camabaja']); return { nombre:'Tracto + Cama Baja 35T',    unidad:'Km', util:35, faena:c.faena, matriz:c.matriz, gafDir:c.gafDir, gadDirDia:{ faena:100305, matriz:93441 } }; })(),
   // Tracto + Cama Baja 45T y 80T: usan un tracto de mayor tonelaje (GAOV más alto), confirmado
   // en planilla Valorizador → pestañas "T+CB45-M" y "T+CB80-M" (Matriz). El valor Faena de GAOV
@@ -529,6 +529,17 @@ const EQUIPOS = {
 // este cotizador (ver comentario de seguridad al inicio del .gs).
 const TOKEN_CONECTOR = 'frankar-bb17762a2df3b1e0';
 
+// URL fija del conector (Apps Script Web App) ya desplegado. Antes cada
+// equipo/navegador tenía que pegarla manualmente en Configuración
+// (localStorage), así que si alguien abría el cotizador en un computador
+// nuevo, el N° de Cotización y el guardado en "BD Cotizaciones" no
+// funcionaban hasta configurarlo. Ahora viene fija de fábrica y funciona
+// en cualquier navegador sin configuración previa; Configuración solo
+// sirve como respaldo/override manual si algún día se redespliega el
+// conector con otra URL.
+const GAS_URL_DEFAULT = 'https://script.google.com/macros/s/AKfycbws1NrtkodaPiEDDuNW4owZBee8qXc1Aky-8NiLsMpgu4pn4cgm8t5TASIWVx_Oqlt0qA/exec';
+const gsUrlActual = () => (ST.cfg && ST.cfg.gsUrl) || GAS_URL_DEFAULT;
+
 // Los valores de arriba (faena/matriz/gafDir) son un RESPALDO local por si
 // no hay conector configurado o falla la conexión. Cuando hay un conector
 // (ST.cfg.gsUrl) activo, esta función le pregunta los costos reales, leídos
@@ -539,7 +550,7 @@ const TOKEN_CONECTOR = 'frankar-bb17762a2df3b1e0';
 // cotizador sigue usando el valor local en vez de pisarlo con un $0 que
 // arruinaría el cálculo silenciosamente.
 function fetchCostosRemotos(){
-  const gsUrl = ST.cfg && ST.cfg.gsUrl;
+  const gsUrl = gsUrlActual();
   if(!gsUrl) return;
   fetch(gsUrl + (gsUrl.includes('?') ? '&' : '?') + 'action=costos')
     .then(r=>r.json())
@@ -846,8 +857,8 @@ function guardarCot() {
   }
   if(!draftItems.length){toast('Agrega al menos un servicio a la cotización','err');return;}
 
-    const emp=($('c_emp').value||'').trim();
-const cn = draftItems.reduce((s,i)=>s+i.costoNeto,0);
+  const emp=($('c_emp').value||'').trim();
+  const cn = draftItems.reduce((s,i)=>s+i.costoNeto,0);
   const neto = draftItems.reduce((s,i)=>s+i.precioVenta,0);
   const desc = draftItems.reduce((s,i)=>s+i.descuentoMonto,0);
   const iva = draftItems.reduce((s,i)=>s+i.iva,0);
@@ -867,7 +878,7 @@ const cn = draftItems.reduce((s,i)=>s+i.costoNeto,0);
   ST.cots.unshift(cot); ST.corr++; save(); initNum();
   toast('Cotización guardada — '+cot.numero,'ok');
 
-  if(ST.cfg.gsActivo && ST.cfg.gsUrl){
+  if(ST.cfg.gsActivo !== false){
     enviarAGoogleSheets(cot);
   }
 
@@ -895,7 +906,7 @@ function filasParaSheet(cot){
 }
 
 function enviarAGoogleSheets(cot, silent){
-  const url = ST.cfg.gsUrl;
+  const url = gsUrlActual();
   if(!url) return;
   const payload = { token: TOKEN_CONECTOR, filas: filasParaSheet(cot) };
   fetch(url, { method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) })
@@ -1091,13 +1102,13 @@ function loadCfg(){
   const cfg=ST.cfg||{};
   ['emp','rut','rubro','dir','tel','cel','mail','web','pfx','banco','tcta','ncta','mailpago','vend','vendtel','vendmail'].forEach(k=>{const el=$('cfg_'+k);if(el)el.value=cfg[k]||'';});
   const c0=$('cfg_corr0');if(c0)c0.value=cfg.corr0||1;
-  $('cfg_gsurl').value = cfg.gsUrl||'';
-  $('cfg_gsactivo').checked = !!cfg.gsActivo;
+  $('cfg_gsurl').value = cfg.gsUrl||GAS_URL_DEFAULT;
+  $('cfg_gsactivo').checked = cfg.gsActivo !== false;
   updateGsStatus();
 }
 function updateGsStatus(){
   const st=$('gs_status');
-  if(ST.cfg.gsActivo && ST.cfg.gsUrl){ st.textContent='Activo'; st.className='gsheet-status on'; }
+  if(ST.cfg.gsActivo !== false){ st.textContent='Activo'; st.className='gsheet-status on'; }
   else { st.textContent='Inactivo'; st.className='gsheet-status off'; }
 }
 function saveConfig(){
@@ -1132,7 +1143,7 @@ function initNum(){
   // próximo número real (continuando el correlativo del historial en la
   // planilla) y reemplaza el número local en cuanto responde. Si falla o no
   // hay conector configurado, se mantiene el correlativo local de respaldo.
-  const gsUrl = ST.cfg && ST.cfg.gsUrl;
+  const gsUrl = gsUrlActual();
   if(gsUrl){
     fetch(gsUrl + (gsUrl.includes('?') ? '&' : '?') + 'action=nextNumero')
       .then(r=>r.json())
@@ -1166,14 +1177,14 @@ document.addEventListener('DOMContentLoaded',()=>{
   fetchCostosRemotos();
   renderItemsTable();
   renderTotales();
-    // En cuanto el usuario completa un campo obligatorio, le saca la marca de
-    // error para que no quede marcado en rojo después de corregirlo.
-    CAMPOS_REQUERIDOS_COT.forEach(c=>{
-      const el=$(c.id);
-      if(!el) return;
-      el.addEventListener('input', ()=>{ if((el.value||'').trim()) el.classList.remove('invalid'); });
-      el.addEventListener('change', ()=>{ if((el.value||'').trim()) el.classList.remove('invalid'); });
-    });
+  // En cuanto el usuario completa un campo obligatorio, le saca la marca de
+  // error para que no quede marcado en rojo después de corregirlo.
+  CAMPOS_REQUERIDOS_COT.forEach(c=>{
+    const el=$(c.id);
+    if(!el) return;
+    el.addEventListener('input', ()=>{ if((el.value||'').trim()) el.classList.remove('invalid'); });
+    el.addEventListener('change', ()=>{ if((el.value||'').trim()) el.classList.remove('invalid'); });
+  });
 });
 </script>
 </body>
