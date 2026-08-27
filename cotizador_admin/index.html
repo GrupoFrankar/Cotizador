@@ -435,13 +435,16 @@ input[type=number]{font-variant-numeric:tabular-nums}
         <div class="cb">
           <div style="display:grid;gap:11px">
             <div style="background:var(--rule2);border-radius:7px;padding:11px 13px;font-size:11.5px;line-height:1.7;color:var(--ink2)">
-              Cada cotización guardada se envía como filas (una por servicio) directamente a tu pestaña <strong>BD Cotizaciones</strong>, mediante un Web App de Apps Script. Ese mismo conector también entrega el número de cotización consecutivo y los costos vigentes (leídos en vivo desde la pestaña Value de la planilla Valorizador). La URL del conector ya viene fija de fábrica en este cotizador — funciona en cualquier navegador o equipo sin configurar nada. Solo cambia el campo de abajo si el conector fue redesplegado con una URL nueva.
+              Cada cotización guardada se envía como filas (una por servicio) directamente a tu pestaña <strong>BD Cotizaciones</strong>, mediante un Web App de Apps Script. Ese mismo conector también entrega el número de cotización consecutivo y los costos vigentes, leídos directo desde la pestaña de cada tipo de equipo en la planilla Valorizador (ej. "CS 10-14T-M", "T+RA-F"...). Para no tener que releer esas pestañas en cada cotización, el conector guarda una copia (caché) de los costos — usa el botón "Actualizar conexión" de abajo cada vez que cambies un valor en la planilla Valorizador. La URL del conector ya viene fija de fábrica en este cotizador — funciona en cualquier navegador o equipo sin configurar nada. Solo cambia el campo de abajo si el conector fue redesplegado con una URL nueva.
             </div>
             <div class="fg"><label>URL del Web App (Apps Script)</label><input type="text" id="cfg_gsurl" placeholder="https://script.google.com/macros/s/XXXX/exec"></div>
             <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-weight:500;color:var(--ink2);font-size:12.5px;cursor:pointer">
               <input type="checkbox" id="cfg_gsactivo" style="width:auto" onchange="saveConfig()"> Activar guardado automático al presionar "Guardar Cotización"
             </label>
             <button class="btn bs" id="btn_test_gs" onclick="testGoogleSheets()">Probar conexión</button>
+            <div class="div"></div>
+            <button class="btn bp" id="btn_actualizar_costos" onclick="actualizarConexion()">⟳ Actualizar conexión (releer costos de Valorizador)</button>
+            <div style="font-size:11.5px;color:var(--ink3)">Última actualización de costos: <strong id="costos_fecha">—</strong></div>
             <div style="background:var(--terral);border:1px solid #e6cbb2;border-radius:7px;padding:10px 13px;font-size:11px;line-height:1.7;color:#6b3410">
               ⚠ Por una limitación técnica de Apps Script (CORS), el navegador nunca puede confirmar si la fila realmente llegó — el mensaje "enviado" solo indica que la solicitud salió de tu computador, no que Google la procesó. Para confirmar de verdad, abre la planilla y revisa directamente la pestaña <strong>BD Cotizaciones</strong> (las filas nuevas quedan al final; si no aparecen, revisa que hayas desplegado el Apps Script como "Aplicación web" con acceso "Cualquier usuario", que hayas pegado la URL correcta arriba, y que el archivo .gs desplegado sea la versión más reciente).
             </div>
@@ -475,14 +478,31 @@ input[type=number]{font-variant-numeric:tabular-nums}
 const MODE = 'admin';
 
 /* ============================================================
-   BASE DE COSTOS — pestaña "Value", columna B "Centro de Negocio"
+   BASE DE COSTOS — pestañas manuales por tipo de equipo en la planilla
+   Valorizador (ej. "CS 10-14T-M", "T+RA-F"...), leídas por el conector de
+   Apps Script. Cada equipo/centro trae 7 componentes: gaov ($/Km), gaof
+   ($/Día) y 5 costos adicionales por día — gadDir/gadInd (administrativo
+   directo/indirecto), gafDir/gafInd (financiero directo/indirecto) y gag
+   (gastos generales). Los valores de abajo son el RESPALDO LOCAL: se usan
+   solo si no hay conector configurado o falla la conexión — en operación
+   normal, fetchCostosRemotos() los reemplaza con los valores reales que
+   entrega el conector (leídos en vivo, o desde su caché — ver botón
+   "Actualizar conexión" en Configuración).
    ============================================================ */
 const PCT_IND = 0.0035;
+const CENTROS = { faena: { nombre:'Faena' }, matriz: { nombre:'Matriz' } };
 
-const CENTROS = {
-  faena:  { nombre:'Faena',  gadDirDia: 94610.89, gadIndPool: 1590690.10, gafIndPool: 610740.00, gagPool: 240702.00 },
-  matriz: { nombre:'Matriz', gadDirDia: 88151.00, gadIndPool: 1911388.37, gafIndPool: 120249.00, gagPool: 337587.64 },
+// Respaldo compartido de GAD/GAF indirectos y GAG (antes vivían en un
+// único "pool" por Centro de Negocio aplicado a todos los equipos por
+// igual; ahora cada pestaña puede traer su propio valor, pero mientras no
+// hay conexión se sigue usando este mismo respaldo para todos, igual que
+// antes). GAD Directo también comparte respaldo, EXCEPTO para los combos
+// Tracto + Cama Baja, que ya usaban un valor propio (ver CB_GAD_DIR).
+const IND_RESPALDO = {
+  faena:  { gadDir: 94611, gadInd: 5567, gafInd: 2138, gag: 842  },
+  matriz: { gadDir: 88151, gadInd: 6690, gafInd: 421,  gag: 1182 },
 };
+const CB_GAD_DIR = { faena: 100305, matriz: 93441 }; // Tracto + Cama Baja 35/45/80T
 
 const COMP = {
   tracto:   { faena:{gaov:852, gaof:5215},  matriz:{gaov:789, gaof:9300},  gafDir:116267 },
@@ -491,37 +511,55 @@ const COMP = {
   rampla:   { faena:{gaov:85,  gaof:1623},  matriz:{gaov:49,  gaof:1623},  gafDir:27188  },
 };
 
-function sumaComp(keys){
-  return {
-    faena:  { gaov: keys.reduce((s,k)=>s+COMP[k].faena.gaov,0),  gaof: keys.reduce((s,k)=>s+COMP[k].faena.gaof,0)  },
-    matriz: { gaov: keys.reduce((s,k)=>s+COMP[k].matriz.gaov,0), gaof: keys.reduce((s,k)=>s+COMP[k].matriz.gaof,0) },
-    gafDir: keys.reduce((s,k)=>s+COMP[k].gafDir,0),
-  };
+// Arma el objeto {faena,matriz} completo (gaov/gaof/gafDir sumando los
+// componentes indicados + gadDir/gadInd/gafInd/gag de respaldo) para un
+// equipo. gadDirOverride permite pisar el gadDir de respaldo (lo usan los
+// combos Tracto + Cama Baja).
+function armaCentros(keys, gadDirOverride){
+  const out = {};
+  ['faena','matriz'].forEach(c=>{
+    const ind = IND_RESPALDO[c];
+    out[c] = {
+      gaov: keys.reduce((s,k)=>s+COMP[k][c].gaov,0),
+      gaof: keys.reduce((s,k)=>s+COMP[k][c].gaof,0),
+      gadDir: gadDirOverride ? gadDirOverride[c] : ind.gadDir,
+      gadInd: ind.gadInd,
+      gafDir: keys.reduce((s,k)=>s+COMP[k].gafDir,0),
+      gafInd: ind.gafInd,
+      gag: ind.gag,
+    };
+  });
+  return out;
 }
 
 const EQUIPOS = {
-  'camioneta':     { nombre:'Camioneta',                unidad:'Km', util:25, faena:{gaov:217, gaof:6151},  matriz:{gaov:177, gaof:8286},  gafDir:47535  },
-  'camion-simple-34':   { nombre:'Camión Simple 3-4T',   unidad:'Km', util:25, faena:{gaov:225, gaof:5215},  matriz:{gaov:167, gaof:13571}, gafDir:31380  },
-  'camion-simple-1014': { nombre:'Camión Simple 10-14T', unidad:'Km', util:25, faena:{gaov:429, gaof:5215},  matriz:{gaov:345, gaof:13571}, gafDir:31380  },
-  'camion-tolva':  { nombre:'Camión Tolva',               unidad:'Km', util:25, faena:{gaov:1418,gaof:9288},  matriz:{gaov:602, gaof:5028},  gafDir:164091 },
-  'tracto':        (()=>{ const c=sumaComp(['tracto']);   return { nombre:'Tracto',                 unidad:'Km', util:25, faena:c.faena, matriz:c.matriz, gafDir:c.gafDir }; })(),
-  'tracto-batea':  (()=>{ const c=sumaComp(['tracto','batea']);    return { nombre:'Tracto + Batea',            unidad:'Km', util:25, faena:c.faena, matriz:c.matriz, gafDir:c.gafDir }; })(),
-  // Tracto + Cama Baja 35T: usa el tracto estándar (mismo que Tracto solo / Tracto+Rampla/Batea).
-  'tracto-cb35':   (()=>{ const c=sumaComp(['tracto','camabaja']); return { nombre:'Tracto + Cama Baja 35T',    unidad:'Km', util:35, faena:c.faena, matriz:c.matriz, gafDir:c.gafDir, gadDirDia:{ faena:100305, matriz:93441 } }; })(),
+  'camioneta': { nombre:'Camioneta', unidad:'Km', util:25,
+    faena:  Object.assign({gaov:217, gaof:6151},  IND_RESPALDO.faena,  {gafDir:47535}),
+    matriz: Object.assign({gaov:177, gaof:8286},  IND_RESPALDO.matriz, {gadDir:189222, gafDir:47535}) },
+  'camion-simple-34': { nombre:'Camión Simple 3-4T', unidad:'Km', util:25,
+    faena:  Object.assign({gaov:225, gaof:5215},  IND_RESPALDO.faena,  {gafDir:31380}),
+    matriz: Object.assign({gaov:167, gaof:13571}, IND_RESPALDO.matriz, {gafDir:31380}) },
+  'camion-simple-1014': { nombre:'Camión Simple 10-14T', unidad:'Km', util:25,
+    faena:  Object.assign({gaov:429, gaof:5215},  IND_RESPALDO.faena,  {gafDir:52424}),
+    matriz: Object.assign({gaov:345, gaof:13571}, IND_RESPALDO.matriz, {gafDir:52424}) },
+  'camion-tolva': { nombre:'Camión Tolva', unidad:'Km', util:25,
+    faena:  Object.assign({gaov:1418, gaof:9288}, IND_RESPALDO.faena,  {gafDir:164091}),
+    matriz: Object.assign({gaov:602,  gaof:5028}, IND_RESPALDO.matriz, {gafDir:164091}) },
+  'tracto':        (()=>{ const c=armaCentros(['tracto']);            return { nombre:'Tracto',                 unidad:'Km', util:25, faena:c.faena, matriz:c.matriz }; })(),
+  'tracto-batea':  (()=>{ const c=armaCentros(['tracto','batea']);    return { nombre:'Tracto + Batea',         unidad:'Km', util:25, faena:c.faena, matriz:c.matriz }; })(),
+  'tracto-rampla': (()=>{ const c=armaCentros(['tracto','rampla']);   return { nombre:'Tracto + Rampla',        unidad:'Km', util:25, faena:c.faena, matriz:c.matriz }; })(),
+  'tracto-cb35':   (()=>{ const c=armaCentros(['tracto','camabaja'], CB_GAD_DIR); return { nombre:'Tracto + Cama Baja 35T', unidad:'Km', util:35, faena:c.faena, matriz:c.matriz }; })(),
   // Tracto + Cama Baja 45T y 80T: usan un tracto de mayor tonelaje (GAOV más alto), confirmado
   // en planilla Valorizador → pestañas "T+CB45-M" y "T+CB80-M" (Matriz). El valor Faena de GAOV
   // NO tiene pestaña de referencia en la planilla — se estimó proporcionalmente al alza que
   // muestra el tracto estándar entre Matriz y Faena (852/789 ≈ 1,08). Pendiente de confirmar
   // con Frankar si se agrega una pestaña "T+CB45-F"/"T+CB80-F" a la planilla.
   'tracto-cb45':   { nombre:'Tracto + Cama Baja 45T', unidad:'Km', util:45,
-                      faena:  { gaov: 1064 + COMP.camabaja.faena.gaov,  gaof: COMP.tracto.faena.gaof  + COMP.camabaja.faena.gaof },
-                      matriz: { gaov:  985 + COMP.camabaja.matriz.gaov, gaof: COMP.tracto.matriz.gaof + COMP.camabaja.matriz.gaof },
-                      gafDir: 116267 + COMP.camabaja.gafDir, gadDirDia:{ faena:100305, matriz:93441 } },
+                      faena:  Object.assign({ gaov: 1064 + COMP.camabaja.faena.gaov,  gaof: COMP.tracto.faena.gaof  + COMP.camabaja.faena.gaof },  IND_RESPALDO.faena,  {gadDir:CB_GAD_DIR.faena,  gafDir:116267+COMP.camabaja.gafDir}),
+                      matriz: Object.assign({ gaov:  985 + COMP.camabaja.matriz.gaov, gaof: COMP.tracto.matriz.gaof + COMP.camabaja.matriz.gaof }, IND_RESPALDO.matriz, {gadDir:CB_GAD_DIR.matriz, gafDir:116267+COMP.camabaja.gafDir}) },
   'tracto-cb80':   { nombre:'Tracto + Cama Baja 80T', unidad:'Km', util:80,
-                      faena:  { gaov: 1296 + COMP.camabaja.faena.gaov,  gaof: COMP.tracto.faena.gaof  + COMP.camabaja.faena.gaof },
-                      matriz: { gaov: 1200 + COMP.camabaja.matriz.gaov, gaof: COMP.tracto.matriz.gaof + COMP.camabaja.matriz.gaof },
-                      gafDir: 116267 + COMP.camabaja.gafDir, gadDirDia:{ faena:100305, matriz:93441 } },
-  'tracto-rampla': (()=>{ const c=sumaComp(['tracto','rampla']);   return { nombre:'Tracto + Rampla',           unidad:'Km', util:25, faena:c.faena, matriz:c.matriz, gafDir:c.gafDir }; })(),
+                      faena:  Object.assign({ gaov: 1296 + COMP.camabaja.faena.gaov,  gaof: COMP.tracto.faena.gaof  + COMP.camabaja.faena.gaof },  IND_RESPALDO.faena,  {gadDir:CB_GAD_DIR.faena,  gafDir:116267+COMP.camabaja.gafDir}),
+                      matriz: Object.assign({ gaov: 1200 + COMP.camabaja.matriz.gaov, gaof: COMP.tracto.matriz.gaof + COMP.camabaja.matriz.gaof }, IND_RESPALDO.matriz, {gadDir:CB_GAD_DIR.matriz, gafDir:116267+COMP.camabaja.gafDir}) },
 };
 
 // Debe coincidir EXACTO con TOKEN_SEGURIDAD en google-apps-script.gs — sirve
@@ -540,37 +578,73 @@ const TOKEN_CONECTOR = 'frankar-bb17762a2df3b1e0';
 const GAS_URL_DEFAULT = 'https://script.google.com/macros/s/AKfycbws1NrtkodaPiEDDuNW4owZBee8qXc1Aky-8NiLsMpgu4pn4cgm8t5TASIWVx_Oqlt0qA/exec';
 const gsUrlActual = () => (ST.cfg && ST.cfg.gsUrl) || GAS_URL_DEFAULT;
 
-// Los valores de arriba (faena/matriz/gafDir) son un RESPALDO local por si
-// no hay conector configurado o falla la conexión. Cuando hay un conector
-// (ST.cfg.gsUrl) activo, esta función le pregunta los costos reales, leídos
-// en vivo desde la pestaña "Value" de la planilla de costos, y los
-// reemplaza en EQUIPOS. Solo se sobrescribe un Centro de Negocio (Faena o
-// Matriz) si el dato remoto trae algo distinto de cero — así, si a la
-// planilla le falta información para un equipo/centro puntual, el
+// Los valores de arriba (faena/matriz) son un RESPALDO LOCAL por si no hay
+// conector configurado o falla la conexión. Cuando hay un conector
+// (ST.cfg.gsUrl) activo, esta función le pide los costos reales — el
+// conector los sirve desde su CACHÉ (rápido: no relee las pestañas de la
+// planilla en cada llamada, ver actualizarConexion() más abajo para el
+// recálculo manual) — y los reemplaza en EQUIPOS. Solo se sobrescribe un
+// Centro de Negocio (Faena o Matriz) si el dato remoto trae algo distinto
+// de cero — así, si a la planilla le falta información para un
+// equipo/centro puntual (ej. todavía no existe esa pestaña Faena), el
 // cotizador sigue usando el valor local en vez de pisarlo con un $0 que
 // arruinaría el cálculo silenciosamente.
+let ultimaActualizacionCostos = null;
+function aplicarCostosRemotos_(data){
+  if(!data || !data.ok || !data.equipos) return false;
+  Object.keys(data.equipos).forEach(key=>{
+    const local = EQUIPOS[key];
+    const remoto = data.equipos[key];
+    if(!local || !remoto) return;
+    ['faena','matriz'].forEach(centro=>{
+      const r = remoto[centro];
+      if(r && (r.gaov>0 || r.gaof>0)) local[centro] = {
+        gaov:r.gaov, gaof:r.gaof,
+        gadDir:r.gadDir||0, gadInd:r.gadInd||0,
+        gafDir:r.gafDir||0, gafInd:r.gafInd||0, gag:r.gag||0,
+      };
+    });
+    if(remoto.util>0) local.util = remoto.util;
+  });
+  if(data.ultimaActualizacion){
+    ultimaActualizacionCostos = data.ultimaActualizacion;
+    const el = $('costos_fecha');
+    if(el) el.textContent = new Date(data.ultimaActualizacion).toLocaleString('es-CL');
+  }
+  return true;
+}
+
 function fetchCostosRemotos(){
   const gsUrl = gsUrlActual();
   if(!gsUrl) return;
   fetch(gsUrl + (gsUrl.includes('?') ? '&' : '?') + 'action=costos')
     .then(r=>r.json())
     .then(data=>{
-      if(!data || !data.ok || !data.equipos) return;
-      Object.keys(data.equipos).forEach(key=>{
-        const local = EQUIPOS[key];
-        const remoto = data.equipos[key];
-        if(!local || !remoto) return;
-        ['faena','matriz'].forEach(centro=>{
-          const r = remoto[centro];
-          if(r && (r.gaov>0 || r.gaof>0)) local[centro] = { gaov:r.gaov, gaof:r.gaof };
-        });
-        if(remoto.gafDir>0) local.gafDir = remoto.gafDir;
-      });
+      aplicarCostosRemotos_(data);
       // Si el equipo seleccionado ya estaba en pantalla, refresca el cálculo
       // con los costos recién llegados.
       if(typeof calcularPreview === 'function') calcularPreview();
     })
     .catch(()=>{ /* sin conexión o conector no desplegado: se mantienen los valores locales de respaldo */ });
+}
+
+// Recalcula los costos AHORA leyendo las 14 pestañas de la planilla
+// Valorizador (no solo la caché) — la llama el botón "Actualizar conexión"
+// en Configuración. A diferencia de fetchCostosRemotos (que se llama sola
+// al abrir el Cotizador y usa la caché, rápida), esta sí es una operación
+// "pesada" del lado del conector, por eso es manual y no automática.
+function actualizarConexion(){
+  const gsUrl = gsUrlActual();
+  if(!gsUrl){ toast('Ingresa la URL del Web App primero','err'); return; }
+  toast('Actualizando costos desde la planilla Valorizador…','ok');
+  fetch(gsUrl + (gsUrl.includes('?') ? '&' : '?') + 'action=actualizarCostos')
+    .then(r=>r.json())
+    .then(data=>{
+      if(!aplicarCostosRemotos_(data)){ toast('No se pudo actualizar la conexión','err'); return; }
+      toast('Conexión actualizada: costos recalculados desde todas las pestañas','ok');
+      if(typeof calcularPreview === 'function') calcularPreview();
+    })
+    .catch(()=>toast('No se pudo actualizar — revisa tu conexión a internet','err'));
 }
 
 let ST = {cots:[], corr:1, cfg:{}};
@@ -639,19 +713,20 @@ function computarDraft(){
   const descTipo = $('c_desctipo').value;
   const descVal  = parseFloat($('c_descval').value) || 0;
 
-  const gaov = eq[centroKey].gaov, gaof = eq[centroKey].gaof;
-  // Algunos equipos (ej. Tracto + Cama Baja) usan un costo de conductor por día distinto al
-  // estándar del Centro de Negocio — si el equipo define gadDirDia propio, se usa ese.
-  const gadDirDia = (eq.gadDirDia ? eq.gadDirDia[centroKey] : centro.gadDirDia);
+  // Cada equipo/centro trae sus 7 componentes propios (gaov/gaof/gadDir/
+  // gadInd/gafDir/gafInd/gag), leídos directo de su pestaña en Valorizador
+  // (o del respaldo local si no hay conector) — ver EQUIPOS/fetchCostosRemotos.
+  const c = eq[centroKey];
+  const gaov = c.gaov, gaof = c.gaof;
 
   const lineas = [
     { familia:'GAO', tipo:'dir', concepto:'GAO Variable (Km)', nota: fCLP(gaov)+'/km · '+centro.nombre, base: gaov*km, pct:1.0, subtotal: gaov*km },
     { familia:'GAO', tipo:'dir', concepto:'GAO Fijo (Día)',    nota: fCLP(gaof)+'/día · '+centro.nombre, base: gaof*dias, pct:1.0, subtotal: gaof*dias },
-    { familia:'GAD', tipo:'dir', concepto:'GAD Directo — Conductor (Día)', nota: fCLP(gadDirDia)+'/día · '+centro.nombre, base: gadDirDia*dias, pct:1.0, subtotal: gadDirDia*dias },
-    { familia:'GAD', tipo:'ind', concepto:'GAD Indirectos (Día)', nota:'Pool '+fCLP(centro.gadIndPool)+' × 0,35% · '+centro.nombre, base: centro.gadIndPool*PCT_IND*dias, pct:PCT_IND, subtotal: centro.gadIndPool*PCT_IND*dias },
-    { familia:'GAF', tipo:'dir', concepto:'GAF Directos (Día)', nota: fCLP(eq.gafDir)+'/día', base: eq.gafDir*dias, pct:1.0, subtotal: eq.gafDir*dias },
-    { familia:'GAF', tipo:'ind', concepto:'GAF Indirectos (Día)', nota:'Pool '+fCLP(centro.gafIndPool)+' × 0,35% · '+centro.nombre, base: centro.gafIndPool*PCT_IND*dias, pct:PCT_IND, subtotal: centro.gafIndPool*PCT_IND*dias },
-    { familia:'GAG', tipo:'ind', concepto:'GAG — Gastos Generales (Día)', nota:'Pool '+fCLP(centro.gagPool)+' × 0,35% · '+centro.nombre, base: centro.gagPool*PCT_IND*dias, pct:PCT_IND, subtotal: centro.gagPool*PCT_IND*dias },
+    { familia:'GAD', tipo:'dir', concepto:'GAD Directo (Día)', nota: fCLP(c.gadDir)+'/día · '+centro.nombre, base: c.gadDir*dias, pct:1.0, subtotal: c.gadDir*dias },
+    { familia:'GAD', tipo:'ind', concepto:'GAD Indirectos (Día)', nota: fCLP(c.gadInd)+'/día · '+centro.nombre, base: c.gadInd*dias, pct:PCT_IND, subtotal: c.gadInd*dias },
+    { familia:'GAF', tipo:'dir', concepto:'GAF Directos (Día)', nota: fCLP(c.gafDir)+'/día · '+centro.nombre, base: c.gafDir*dias, pct:1.0, subtotal: c.gafDir*dias },
+    { familia:'GAF', tipo:'ind', concepto:'GAF Indirectos (Día)', nota: fCLP(c.gafInd)+'/día · '+centro.nombre, base: c.gafInd*dias, pct:PCT_IND, subtotal: c.gafInd*dias },
+    { familia:'GAG', tipo:'ind', concepto:'GAG — Gastos Generales (Día)', nota: fCLP(c.gag)+'/día · '+centro.nombre, base: c.gag*dias, pct:PCT_IND, subtotal: c.gag*dias },
   ];
 
   const costoNeto = lineas.reduce((s,l)=>s+l.subtotal,0) * uni;
