@@ -261,7 +261,10 @@ input[type=number]{font-variant-numeric:tabular-nums}
             <div class="fg"><label>Unidades</label>
               <input type="number" id="c_uni" min="1" value="1" oninput="calcularPreview()">
             </div>
-            <div class="fg">
+            <div class="fg"><label>N° Conductores</label>
+              <input type="number" id="c_cond" min="1" step="1" value="1" oninput="calcularPreview()">
+            </div>
+            <div class="fg s2">
               <label>Descuento</label>
               <div class="desctog">
                 <select id="c_desctipo" onchange="calcularPreview()">
@@ -710,6 +713,7 @@ function computarDraft(){
   const km    = parseFloat($('c_km').value)   || 0;
   const dias  = parseFloat($('c_dias').value) || 0;
   const uni   = parseFloat($('c_uni').value)  || 1;
+  const conductores = parseInt($('c_cond').value, 10) || 1;
   const descTipo = $('c_desctipo').value;
   const descVal  = parseFloat($('c_descval').value) || 0;
 
@@ -719,10 +723,14 @@ function computarDraft(){
   const c = eq[centroKey];
   const gaov = c.gaov, gaof = c.gaof;
 
+  // GAD Directo se multiplica por la cantidad de conductores del servicio:
+  // algunos servicios de más de 14 días requieren agregar un segundo
+  // conductor, y ese costo (el directo, no los indirectos/pool) se duplica.
+  const notaCond = conductores>1 ? (' × '+conductores+' conductores') : '';
   const lineas = [
     { familia:'GAO', tipo:'dir', concepto:'GAO Variable (Km)', nota: fCLP(gaov)+'/km · '+centro.nombre, base: gaov*km, pct:1.0, subtotal: gaov*km },
     { familia:'GAO', tipo:'dir', concepto:'GAO Fijo (Día)',    nota: fCLP(gaof)+'/día · '+centro.nombre, base: gaof*dias, pct:1.0, subtotal: gaof*dias },
-    { familia:'GAD', tipo:'dir', concepto:'GAD Directo (Día)', nota: fCLP(c.gadDir)+'/día · '+centro.nombre, base: c.gadDir*dias, pct:1.0, subtotal: c.gadDir*dias },
+    { familia:'GAD', tipo:'dir', concepto:'GAD Directo (Día)', nota: fCLP(c.gadDir)+'/día'+notaCond+' · '+centro.nombre, base: c.gadDir*dias*conductores, pct:1.0, subtotal: c.gadDir*dias*conductores },
     { familia:'GAD', tipo:'ind', concepto:'GAD Indirectos (Día)', nota: fCLP(c.gadInd)+'/día · '+centro.nombre, base: c.gadInd*dias, pct:PCT_IND, subtotal: c.gadInd*dias },
     { familia:'GAF', tipo:'dir', concepto:'GAF Directos (Día)', nota: fCLP(c.gafDir)+'/día · '+centro.nombre, base: c.gafDir*dias, pct:1.0, subtotal: c.gafDir*dias },
     { familia:'GAF', tipo:'ind', concepto:'GAF Indirectos (Día)', nota: fCLP(c.gafInd)+'/día · '+centro.nombre, base: c.gafInd*dias, pct:PCT_IND, subtotal: c.gafInd*dias },
@@ -743,7 +751,7 @@ function computarDraft(){
   return {
     eqKey, eqNombre: eq.nombre, centroKey, centroNombre: centro.nombre, unidad: eq.unidad,
     origen: $('c_ori').value, destino: $('c_dst').value, descripcion: $('c_desc').value,
-    km, dias, unidades: uni, descTipo, descVal,
+    km, dias, unidades: uni, conductores, descTipo, descVal,
     lineas, porFam, costoNeto, util, precioVenta,
     descuentoMonto, precioNetoFinal, precioUnitario: precioVenta/uni, iva, total,
   };
@@ -813,15 +821,51 @@ function renderDist(porFam, total) {
   }).join('');
 }
 
+// Campos obligatorios del formulario "Agregar Servicio" — todos menos
+// "Descripción/Observaciones" (c_desc) y "Descuento" (c_descval/c_desctipo),
+// que son los únicos opcionales según lo pedido.
+const CAMPOS_REQUERIDOS_SERVICIO = [
+  {id:'c_eq', label:'Tipo de Equipo'},
+  {id:'c_centro', label:'Tipo de Operación'},
+  {id:'c_ori', label:'Origen'},
+  {id:'c_dst', label:'Destino'},
+  {id:'c_km', label:'Kilómetros del Roundtrip'},
+  {id:'c_dias', label:'Días'},
+  {id:'c_uni', label:'Unidades'},
+  {id:'c_cond', label:'N° Conductores'},
+];
+
+function limpiarInvalidosServicio(){
+  CAMPOS_REQUERIDOS_SERVICIO.forEach(c=>{const el=$(c.id); if(el) el.classList.remove('invalid');});
+}
+
+function validarCamposServicio(){
+  limpiarInvalidosServicio();
+  const faltantes=[];
+  CAMPOS_REQUERIDOS_SERVICIO.forEach(c=>{
+    const el=$(c.id);
+    if(!el) return;
+    if(!(el.value||'').trim()){ faltantes.push(c); el.classList.add('invalid'); }
+  });
+  return faltantes;
+}
+
 function agregarServicio(){
+  const faltantes = validarCamposServicio();
+  if(faltantes.length){
+    toast('Completa antes de agregar el servicio: '+faltantes.map(c=>c.label).join(', '),'err');
+    const el=$(faltantes[0].id);
+    if(el){ el.scrollIntoView({behavior:'smooth', block:'center'}); el.focus(); }
+    return;
+  }
   const d = computarDraft();
   if(!d){ toast('Selecciona un tipo de equipo','err'); return; }
-  if(!d.km && !d.dias){ toast('Ingresa km y/o días','err'); return; }
   draftItems.push(d);
   // reset campos del servicio (mantiene equipo y operación seleccionados por conveniencia)
   $('c_desc').value=''; $('c_ori').value=''; $('c_dst').value='';
   $('c_km').value=''; $('c_dias').value=''; $('c_uni').value=1;
-  $('c_descval').value=0; $('c_desctipo').value='monto';
+  $('c_cond').value=1; $('c_descval').value=0; $('c_desctipo').value='monto';
+  limpiarInvalidosServicio();
   calcularPreview();
   renderItemsTable();
   renderTotales();
@@ -844,7 +888,7 @@ function renderItemsTable(){
   body.innerHTML = draftItems.map((it,i)=>
     '<tr>' +
     '<td class="letra">'+letra(i)+'</td>' +
-    '<td>'+it.eqNombre+'<br><span class="tm" style="font-size:11px">'+it.centroNombre+'</span></td>' +
+    '<td>'+it.eqNombre+'<br><span class="tm" style="font-size:11px">'+it.centroNombre+((it.conductores||1)>1?' · '+it.conductores+' conductores':'')+'</span></td>' +
     '<td style="font-size:11.5px">'+(it.origen||'—')+' → '+(it.destino||'—')+'</td>' +
     '<td class="n">'+it.km+' km<br><span class="tm" style="font-size:11px">'+it.dias+' días</span></td>' +
     '<td class="n mn">'+fCLP(it.precioVenta)+'</td>' +
@@ -874,7 +918,7 @@ function renderTotales(){
 function limpiarCot() {
   ['c_emp','c_rut','c_ctc','c_tel','c_mail','c_dir','c_com','c_ciu','c_desc','c_ori','c_dst'].forEach(id=>{const el=$(id);if(el)el.value='';});
   $('c_eq').value=''; $('c_centro').value='faena'; $('c_km').value=''; $('c_dias').value='';
-  $('c_uni').value=1; $('c_descval').value=0; $('c_desctipo').value='monto';
+  $('c_uni').value=1; $('c_cond').value=1; $('c_descval').value=0; $('c_desctipo').value='monto';
   $('c_mon').value='CLP'; $('c_vig').value=30; $('c_pago').value='30 días fecha factura';
   $('c_tv').value='Transporte';
   draftItems = [];
@@ -884,6 +928,7 @@ function limpiarCot() {
   $('eq_label').textContent='—';
   $('util_note').style.display='none';
   limpiarInvalidos();
+  limpiarInvalidosServicio();
   initNum();
 }
 
@@ -976,7 +1021,8 @@ function filasParaSheet(cot){
     precioUnitario: Math.round(it.precioUnitario), descuento: Math.round(it.descuentoMonto),
     precioTotalNeto: Math.round(it.precioNetoFinal), iva: Math.round(it.iva), precioFinal: Math.round(it.total),
     contacto: cot.cliente.contacto, mail: cot.cliente.email, estado: cot.estado,
-    formaPago: cot.conds.condPago, oc: '', factura: '', observaciones: it.descripcion || '',
+    formaPago: cot.conds.condPago, oc: '', factura: '',
+    observaciones: [it.descripcion || '', 'N° Conductores: '+(it.conductores||1)].filter(Boolean).join(' — '),
   }));
 }
 
@@ -1133,7 +1179,8 @@ function loadPreview(){
   html += '<th>Ítem</th><th>Descripción de Carga y Servicio</th><th>Origen</th><th>Destino</th><th>Unidad</th><th class="n">Cant.</th><th class="n">Precio Unitario</th><th class="n">Descuento</th><th class="n">Precio Total</th>';
   html += '</tr></thead><tbody>';
   c.items.forEach((it,i)=>{
-    const descripcion = it.eqNombre+' — '+it.centroNombre+(it.descripcion?(' · '+it.descripcion):'');
+    const condTxt = (it.conductores||1)>1 ? (' · '+it.conductores+' conductores') : '';
+    const descripcion = it.eqNombre+' — '+it.centroNombre+(it.descripcion?(' · '+it.descripcion):'')+condTxt;
     html += '<tr><td><strong>'+letra(i)+'</strong></td><td>'+descripcion+'</td><td>'+(it.origen||'—')+'</td><td>'+(it.destino||'—')+'</td><td>Días</td><td class="n">'+it.dias+'</td><td class="n">'+fCLP(it.precioUnitario)+'</td><td class="n">'+(it.descuentoMonto>0?fCLP(it.descuentoMonto):'$0')+'</td><td class="n"><strong>'+fCLP(it.precioNetoFinal)+'</strong></td></tr>';
   });
   html += '</tbody></table>';
