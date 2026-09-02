@@ -295,6 +295,16 @@ body.simple-mode .cot-row2{grid-template-columns:1fr}
               <div class="fg"><label>% Utilidad</label><input type="number" id="c_v_util" step="0.1" oninput="onVarCalcInput(this)"></div>
             </div>
           </div>
+          <div class="admin-only" id="pv_box" style="display:none;margin-top:12px;padding:12px;border:1.5px dashed var(--rule);border-radius:var(--r);background:var(--rule2)">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;gap:8px;flex-wrap:wrap">
+              <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--ink3)">Precio Neto de Venta — fijar un precio cerrado (opcional)</div>
+              <a href="javascript:void(0)" onclick="quitarPrecioNetoManual()" style="font-size:11.5px;color:var(--azul);font-weight:600;text-decoration:none;white-space:nowrap">↺ Usar % Utilidad</a>
+            </div>
+            <div style="display:grid;grid-template-columns:200px 1fr;gap:9px;align-items:end">
+              <div class="fg"><label>Precio Neto ($)</label><input type="number" id="c_v_precioneto" step="1" placeholder="Automático" oninput="onPrecioNetoInput()"></div>
+              <div style="font-size:12px;color:var(--ink3);padding-bottom:9px" id="pv_note">Se calcula automáticamente con el % Utilidad del equipo.</div>
+            </div>
+          </div>
           <button class="btn bt bfull" style="margin-top:12px" onclick="agregarServicio()">+ Agregar Servicio a la Cotización</button>
         </div>
       </div>
@@ -720,9 +730,11 @@ function onEqChange(){
 // que se está armando, nunca algo que quede pisado para la próxima vez.
 function poblarVariablesCalculo(){
   const box = $('vc_box');
+  const pvBox = $('pv_box');
   const eq = EQUIPOS[$('c_eq').value];
-  if(!eq){ if(box) box.style.display='none'; return; }
+  if(!eq){ if(box) box.style.display='none'; if(pvBox) pvBox.style.display='none'; return; }
   if(box) box.style.display='';
+  if(pvBox) pvBox.style.display='';
   const centroKey = $('c_centro').value || 'faena';
   const c = eq[centroKey];
   const campos = {
@@ -737,6 +749,10 @@ function poblarVariablesCalculo(){
     el.dataset.default = val;
     el.classList.remove('vc-edited');
   });
+  // El precio fijo manual también parte siempre en blanco (usa % Utilidad)
+  // cada vez que cambia el equipo/centro — mismo alcance "solo este servicio".
+  const pvInput = $('c_v_precioneto');
+  if(pvInput) pvInput.value = '';
 }
 function restablecerVariablesCalculo(){
   if(!$('c_eq').value){ return; }
@@ -749,6 +765,23 @@ function onVarCalcInput(el){
   const cur = parseFloat(el.value);
   el.classList.toggle('vc-edited', !isNaN(def) && !isNaN(cur) && Math.abs(cur-def) > 0.01);
   calcularPreview();
+}
+
+// Precio Neto de Venta fijo: permite ingresar un precio cerrado (ej. $200.000)
+// para el servicio que se está armando. Al escribirlo, ese valor reemplaza
+// el precio calculado automáticamente (costoNeto × (1+%Utilidad)) — el
+// Descuento, IVA y Total se siguen calculando en cascada a partir de él, tal
+// como pediste. Igual que las demás variables, es un ajuste "solo para este
+// servicio": se limpia al cambiar de equipo/centro, al agregar el servicio o
+// al iniciar una nueva cotización.
+function onPrecioNetoInput(){
+  calcularPreview();
+}
+function quitarPrecioNetoManual(){
+  const el = $('c_v_precioneto');
+  if(el) el.value = '';
+  calcularPreview();
+  toast('Se vuelve a calcular con el % Utilidad del equipo','ok');
 }
 
 /* Calcula el item "en construcción" a partir del formulario. No lo agrega a la lista. */
@@ -807,7 +840,17 @@ function computarDraft(){
   const porFam = {GAO:0,GAD:0,GAF:0,GAG:0};
   lineas.forEach(l => { porFam[l.familia] += l.subtotal*uni; });
 
-  const precioVenta = costoNeto*(1+util/100);
+  const precioVentaAuto = costoNeto*(1+util/100);
+  // Precio Neto de Venta fijo (opcional): si el admin ingresó un precio
+  // cerrado en "pv_box", éste reemplaza al calculado por % Utilidad — el
+  // resto de la cascada (Descuento → IVA → Total) sigue calculándose en
+  // función de él, igual que antes se calculaba en función del automático.
+  const pvManualRaw = $('c_v_precioneto') ? $('c_v_precioneto').value : '';
+  const precioManual = pvManualRaw !== '' && !isNaN(parseFloat(pvManualRaw)) ? parseFloat(pvManualRaw) : null;
+  const precioVenta = precioManual != null ? precioManual : precioVentaAuto;
+  // % Utilidad que ese precio fijo implica sobre el costo neto real — solo
+  // informativo, para que el admin vea qué margen está quedando.
+  const utilImplicito = costoNeto>0 ? ((precioVenta/costoNeto)-1)*100 : null;
   const descuentoMonto = descTipo==='pct' ? precioVenta*(descVal/100) : Math.min(descVal, precioVenta);
   const precioNetoFinal = Math.max(precioVenta - descuentoMonto, 0);
   const iva = precioNetoFinal*0.19;
@@ -818,6 +861,7 @@ function computarDraft(){
     origen: $('c_ori').value, destino: $('c_dst').value, descripcion: $('c_desc').value,
     km, dias, unidades: uni, conductores, descTipo, descVal,
     lineas, porFam, costoNeto, util, precioVenta,
+    precioManual: precioManual != null, precioVentaAuto, utilImplicito,
     descuentoMonto, precioNetoFinal, precioUnitario: precioVenta/uni, iva, total,
   };
 }
@@ -855,13 +899,29 @@ function calcularPreview() {
     '</tr>'
   ).join('') +
   '<tr><td colspan="3"><strong>COSTO NETO SERVICIO ACTUAL'+(d.unidades>1?' (× '+d.unidades+' unidades)':'')+'</strong></td>' +
-  '<td style="text-align:right" class="mn"><strong>'+fCLP(d.costoNeto)+'</strong></td></tr>';
+  '<td style="text-align:right" class="mn"><strong>'+fCLP(d.costoNeto)+'</strong></td></tr>' +
+  '<tr><td colspan="3"><strong>PRECIO NETO DE VENTA'+(d.precioManual?' <span style="font-size:10px;font-weight:700;background:var(--wab);color:var(--wa);padding:2px 5px;border-radius:3px;margin-left:4px">fijado manualmente</span>':'')+'</strong></td>' +
+  '<td style="text-align:right" class="mn"><strong>'+fCLP(d.precioVenta)+'</strong></td></tr>' +
+  (d.descuentoMonto>0 ? '<tr><td colspan="3">Descuento</td><td style="text-align:right" class="mn">-'+fCLP(d.descuentoMonto)+'</td></tr>' : '') +
+  '<tr><td colspan="3">IVA (19%)</td><td style="text-align:right" class="mn">'+fCLP(d.iva)+'</td></tr>' +
+  '<tr><td colspan="3"><strong>TOTAL SERVICIO ACTUAL</strong></td>' +
+  '<td style="text-align:right" class="mn"><strong>'+fCLP(d.total)+'</strong></td></tr>';
+
+  const pvNote = $('pv_note');
+  if(pvNote){
+    if(d.precioManual){
+      pvNote.innerHTML = 'Precio fijado manualmente en <strong>'+fCLP(d.precioVenta)+'</strong>'+
+        (d.utilImplicito!=null ? ' — implica un % Utilidad de <strong>'+fPct(d.utilImplicito)+'</strong> (automático: '+fPct(d.util)+', '+fCLP(d.precioVentaAuto)+')' : ' — completa km/días para calcular el % Utilidad implícito');
+    } else {
+      pvNote.textContent = 'Se calcula automáticamente con el % Utilidad del equipo ('+fPct(d.util)+(d.costoNeto>0?', '+fCLP(d.precioVentaAuto):'')+').';
+    }
+  }
 
   renderDist(d.porFam, d.costoNeto);
   $('cref').style.display = '';
   $('ref_km').textContent  = d.km>0 ? fCLP(d.costoNeto/d.km/d.unidades) : '—';
   $('ref_dia').textContent = d.dias>0 ? fCLP(d.costoNeto/d.dias/d.unidades) : '—';
-  $('ref_km_iva').textContent = d.km>0 ? fCLP((d.costoNeto*(1+d.util/100)*1.19)/d.km/d.unidades) : '—';
+  $('ref_km_iva').textContent = d.km>0 ? fCLP((d.precioVenta*1.19)/d.km/d.unidades) : '—';
 }
 
 function renderDist(porFam, total) {
@@ -993,6 +1053,8 @@ function limpiarCot() {
   calcularPreview();
   $('eq_label').textContent='—';
   $('vc_box').style.display='none';
+  if($('pv_box')) $('pv_box').style.display='none';
+  if($('c_v_precioneto')) $('c_v_precioneto').value='';
   limpiarInvalidos();
   limpiarInvalidosServicio();
   initNum();
