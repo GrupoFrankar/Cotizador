@@ -48,6 +48,7 @@ input,select,textarea{width:100%;padding:8px 10px;border:1.5px solid var(--rule)
 input:focus,select:focus,textarea:focus{border-color:var(--azul);box-shadow:0 0 0 3px rgba(36,48,60,.1)}
 input[readonly]{background:var(--rule2);color:var(--ink3)}
 input.invalid,select.invalid,textarea.invalid{border-color:var(--terra);box-shadow:0 0 0 3px rgba(156,72,24,.14)}
+input.vc-edited{border-color:var(--wa);background:var(--wab);box-shadow:0 0 0 3px rgba(138,100,18,.12)}
 textarea{resize:vertical;min-height:56px}
 input[type=number]{font-variant-numeric:tabular-nums}
 .btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border:none;border-radius:var(--r);font-family:'Inter',sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap}
@@ -241,7 +242,7 @@ input[type=number]{font-variant-numeric:tabular-nums}
             </div>
             <div class="fg s2">
               <label>Tipo de Operación</label>
-              <select id="c_centro" onchange="calcularPreview()">
+              <select id="c_centro" onchange="poblarVariablesCalculo();calcularPreview()">
                 <option value="faena">Faena</option>
                 <option value="matriz">Matriz</option>
               </select>
@@ -275,9 +276,21 @@ input[type=number]{font-variant-numeric:tabular-nums}
               </div>
             </div>
           </div>
-          <div class="util-note admin-only" id="util_note" style="display:none">
-            <span>💡</span>
-            <span>Utilidad aplicada para este equipo: <b id="util_pct">—</b> (definida automáticamente, no editable)</span>
+          <div class="admin-only" id="vc_box" style="display:none;margin-top:12px;padding:12px;border:1.5px dashed var(--rule);border-radius:var(--r);background:var(--rule2)">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;gap:8px;flex-wrap:wrap">
+              <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--ink3)">Variables de Cálculo — editable solo para este servicio</div>
+              <a href="javascript:void(0)" onclick="restablecerVariablesCalculo()" style="font-size:11.5px;color:var(--azul);font-weight:600;text-decoration:none;white-space:nowrap">↺ Restablecer valores</a>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:9px">
+              <div class="fg"><label>GAO Variable ($/km)</label><input type="number" id="c_v_gaov" step="1" oninput="onVarCalcInput(this)"></div>
+              <div class="fg"><label>GAO Fijo ($/día)</label><input type="number" id="c_v_gaof" step="1" oninput="onVarCalcInput(this)"></div>
+              <div class="fg"><label>GAD Directo ($/día)</label><input type="number" id="c_v_gaddir" step="1" oninput="onVarCalcInput(this)"></div>
+              <div class="fg"><label>GAD Indirectos ($/día)</label><input type="number" id="c_v_gadind" step="1" oninput="onVarCalcInput(this)"></div>
+              <div class="fg"><label>GAF Directos ($/día)</label><input type="number" id="c_v_gafdir" step="1" oninput="onVarCalcInput(this)"></div>
+              <div class="fg"><label>GAF Indirectos ($/día)</label><input type="number" id="c_v_gafind" step="1" oninput="onVarCalcInput(this)"></div>
+              <div class="fg"><label>GAG ($/día)</label><input type="number" id="c_v_gag" step="1" oninput="onVarCalcInput(this)"></div>
+              <div class="fg"><label>% Utilidad</label><input type="number" id="c_v_util" step="0.1" oninput="onVarCalcInput(this)"></div>
+            </div>
           </div>
           <button class="btn bt bfull" style="margin-top:12px" onclick="agregarServicio()">+ Agregar Servicio a la Cotización</button>
         </div>
@@ -694,12 +707,45 @@ function poblarEquipos(){
 function onEqChange(){
   const eq = EQUIPOS[$('c_eq').value];
   $('eq_label').textContent = eq ? eq.nombre : '—';
-  if(eq){
-    $('util_note').style.display='';
-    $('util_pct').textContent = eq.util+'%';
-  } else {
-    $('util_note').style.display='none';
-  }
+  poblarVariablesCalculo();
+  calcularPreview();
+}
+
+// Rellena el panel "Variables de Cálculo" (admin) con los valores actuales
+// de la planilla Valorizador para el equipo/centro seleccionados. Se llama
+// cada vez que cambia el equipo o el centro, y desde "Restablecer valores" —
+// así cualquier edición manual es siempre un ajuste puntual para el servicio
+// que se está armando, nunca algo que quede pisado para la próxima vez.
+function poblarVariablesCalculo(){
+  const box = $('vc_box');
+  const eq = EQUIPOS[$('c_eq').value];
+  if(!eq){ if(box) box.style.display='none'; return; }
+  if(box) box.style.display='';
+  const centroKey = $('c_centro').value || 'faena';
+  const c = eq[centroKey];
+  const campos = {
+    c_v_gaov: c.gaov, c_v_gaof: c.gaof, c_v_gaddir: c.gadDir, c_v_gadind: c.gadInd,
+    c_v_gafdir: c.gafDir, c_v_gafind: c.gafInd, c_v_gag: c.gag, c_v_util: eq.util,
+  };
+  Object.keys(campos).forEach(id=>{
+    const el = $(id);
+    if(!el) return;
+    const val = Math.round((campos[id]||0)*100)/100;
+    el.value = val;
+    el.dataset.default = val;
+    el.classList.remove('vc-edited');
+  });
+}
+function restablecerVariablesCalculo(){
+  if(!$('c_eq').value){ return; }
+  poblarVariablesCalculo();
+  calcularPreview();
+  toast('Valores restablecidos a los de la planilla Valorizador','ok');
+}
+function onVarCalcInput(el){
+  const def = parseFloat(el.dataset.default);
+  const cur = parseFloat(el.value);
+  el.classList.toggle('vc-edited', !isNaN(def) && !isNaN(cur) && Math.abs(cur-def) > 0.01);
   calcularPreview();
 }
 
@@ -720,28 +766,45 @@ function computarDraft(){
   // Cada equipo/centro trae sus 7 componentes propios (gaov/gaof/gadDir/
   // gadInd/gafDir/gafInd/gag), leídos directo de su pestaña en Valorizador
   // (o del respaldo local si no hay conector) — ver EQUIPOS/fetchCostosRemotos.
+  // En modo admin, el panel "Variables de Cálculo" permite pisar cualquiera
+  // de estos valores (y el % Utilidad) solo para el servicio que se está
+  // armando — lee siempre de esos campos, con el valor de la planilla como
+  // respaldo si por algo el campo está vacío. En modo simple los campos
+  // están ocultos pero igual existen (poblarVariablesCalculo los llena), así
+  // que el cálculo no cambia para ese modo.
   const c = eq[centroKey];
-  const gaov = c.gaov, gaof = c.gaof;
+  const leerVar = (id, fallback) => { const v = parseFloat($(id) && $(id).value); return isNaN(v) ? fallback : v; };
+  const gaov    = leerVar('c_v_gaov',   c.gaov);
+  const gaof    = leerVar('c_v_gaof',   c.gaof);
+  const gadDir  = leerVar('c_v_gaddir', c.gadDir);
+  const gadInd  = leerVar('c_v_gadind', c.gadInd);
+  const gafDir  = leerVar('c_v_gafdir', c.gafDir);
+  const gafInd  = leerVar('c_v_gafind', c.gafInd);
+  const gag     = leerVar('c_v_gag',    c.gag);
+  const util    = leerVar('c_v_util',   eq.util);
+  // Marca "(editado)" en la nota de cada línea cuyo valor difiere del que
+  // trae la planilla Valorizador, para que quede claro en el detalle qué se
+  // ajustó manualmente para este servicio.
+  const ed = (val, orig) => Math.abs(val-orig) > 0.01 ? ' · <b>editado</b>' : '';
 
   // GAD Directo se multiplica por la cantidad de conductores del servicio:
   // algunos servicios de más de 14 días requieren agregar un segundo
   // conductor, y ese costo (el directo, no los indirectos/pool) se duplica.
   const notaCond = conductores>1 ? (' × '+conductores+' conductores') : '';
   const lineas = [
-    { familia:'GAO', tipo:'dir', concepto:'GAO Variable (Km)', nota: fCLP(gaov)+'/km · '+centro.nombre, base: gaov*km, pct:1.0, subtotal: gaov*km },
-    { familia:'GAO', tipo:'dir', concepto:'GAO Fijo (Día)',    nota: fCLP(gaof)+'/día · '+centro.nombre, base: gaof*dias, pct:1.0, subtotal: gaof*dias },
-    { familia:'GAD', tipo:'dir', concepto:'GAD Directo (Día)', nota: fCLP(c.gadDir)+'/día'+notaCond+' · '+centro.nombre, base: c.gadDir*dias*conductores, pct:1.0, subtotal: c.gadDir*dias*conductores },
-    { familia:'GAD', tipo:'ind', concepto:'GAD Indirectos (Día)', nota: fCLP(c.gadInd)+'/día · '+centro.nombre, base: c.gadInd*dias, pct:PCT_IND, subtotal: c.gadInd*dias },
-    { familia:'GAF', tipo:'dir', concepto:'GAF Directos (Día)', nota: fCLP(c.gafDir)+'/día · '+centro.nombre, base: c.gafDir*dias, pct:1.0, subtotal: c.gafDir*dias },
-    { familia:'GAF', tipo:'ind', concepto:'GAF Indirectos (Día)', nota: fCLP(c.gafInd)+'/día · '+centro.nombre, base: c.gafInd*dias, pct:PCT_IND, subtotal: c.gafInd*dias },
-    { familia:'GAG', tipo:'ind', concepto:'GAG — Gastos Generales (Día)', nota: fCLP(c.gag)+'/día · '+centro.nombre, base: c.gag*dias, pct:PCT_IND, subtotal: c.gag*dias },
+    { familia:'GAO', tipo:'dir', concepto:'GAO Variable (Km)', nota: fCLP(gaov)+'/km · '+centro.nombre+ed(gaov,c.gaov), base: gaov*km, pct:1.0, subtotal: gaov*km },
+    { familia:'GAO', tipo:'dir', concepto:'GAO Fijo (Día)',    nota: fCLP(gaof)+'/día · '+centro.nombre+ed(gaof,c.gaof), base: gaof*dias, pct:1.0, subtotal: gaof*dias },
+    { familia:'GAD', tipo:'dir', concepto:'GAD Directo (Día)', nota: fCLP(gadDir)+'/día'+notaCond+' · '+centro.nombre+ed(gadDir,c.gadDir), base: gadDir*dias*conductores, pct:1.0, subtotal: gadDir*dias*conductores },
+    { familia:'GAD', tipo:'ind', concepto:'GAD Indirectos (Día)', nota: fCLP(gadInd)+'/día · '+centro.nombre+ed(gadInd,c.gadInd), base: gadInd*dias, pct:PCT_IND, subtotal: gadInd*dias },
+    { familia:'GAF', tipo:'dir', concepto:'GAF Directos (Día)', nota: fCLP(gafDir)+'/día · '+centro.nombre+ed(gafDir,c.gafDir), base: gafDir*dias, pct:1.0, subtotal: gafDir*dias },
+    { familia:'GAF', tipo:'ind', concepto:'GAF Indirectos (Día)', nota: fCLP(gafInd)+'/día · '+centro.nombre+ed(gafInd,c.gafInd), base: gafInd*dias, pct:PCT_IND, subtotal: gafInd*dias },
+    { familia:'GAG', tipo:'ind', concepto:'GAG — Gastos Generales (Día)', nota: fCLP(gag)+'/día · '+centro.nombre+ed(gag,c.gag), base: gag*dias, pct:PCT_IND, subtotal: gag*dias },
   ];
 
   const costoNeto = lineas.reduce((s,l)=>s+l.subtotal,0) * uni;
   const porFam = {GAO:0,GAD:0,GAF:0,GAG:0};
   lineas.forEach(l => { porFam[l.familia] += l.subtotal*uni; });
 
-  const util = eq.util;
   const precioVenta = costoNeto*(1+util/100);
   const descuentoMonto = descTipo==='pct' ? precioVenta*(descVal/100) : Math.min(descVal, precioVenta);
   const precioNetoFinal = Math.max(precioVenta - descuentoMonto, 0);
@@ -866,6 +929,7 @@ function agregarServicio(){
   $('c_km').value=''; $('c_dias').value=''; $('c_uni').value=1;
   $('c_cond').value=1; $('c_descval').value=0; $('c_desctipo').value='monto';
   limpiarInvalidosServicio();
+  poblarVariablesCalculo(); // el próximo servicio parte siempre con los valores de la planilla
   calcularPreview();
   renderItemsTable();
   renderTotales();
@@ -926,7 +990,7 @@ function limpiarCot() {
   renderTotales();
   calcularPreview();
   $('eq_label').textContent='—';
-  $('util_note').style.display='none';
+  $('vc_box').style.display='none';
   limpiarInvalidos();
   limpiarInvalidosServicio();
   initNum();
