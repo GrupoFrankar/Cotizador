@@ -238,6 +238,13 @@ body.simple-mode .cot-row2{grid-template-columns:1fr}
       <div class="cb">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:11px">
             <div class="fg s2">
+              <label>Tipo de Cotización</label>
+              <select id="c_tipocot" onchange="onTipoCotChange()">
+                <option value="transporte">Transporte</option>
+                <option value="arriendo">Arriendo</option>
+              </select>
+            </div>
+            <div class="fg s2">
               <label>Tipo de Equipo</label>
               <select id="c_eq" onchange="onEqChange()">
                 <option value="">— Seleccionar —</option>
@@ -256,7 +263,7 @@ body.simple-mode .cot-row2{grid-template-columns:1fr}
             <div class="fg"><label>Origen</label><input type="text" id="c_ori" placeholder="Ciudad / Lugar"></div>
             <div class="fg"><label>Destino</label><input type="text" id="c_dst" placeholder="Ciudad / Lugar"></div>
             <div class="fg">
-              <label>Kilómetros del Roundtrip</label>
+              <label id="lbl_c_km">Kilómetros del Roundtrip</label>
               <input type="number" id="c_km" min="0" step="1" placeholder="0" oninput="calcularPreview()">
             </div>
             <div class="fg"><label>Días</label>
@@ -285,7 +292,7 @@ body.simple-mode .cot-row2{grid-template-columns:1fr}
               <a href="javascript:void(0)" onclick="restablecerVariablesCalculo()" style="font-size:11.5px;color:var(--azul);font-weight:600;text-decoration:none;white-space:nowrap">↺ Restablecer valores</a>
             </div>
             <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:9px">
-              <div class="fg"><label>GAO Variable ($/km)</label><input type="number" id="c_v_gaov" step="1" oninput="onVarCalcInput(this)"></div>
+              <div class="fg"><label id="lbl_gaov">GAO Variable ($/km)</label><input type="number" id="c_v_gaov" step="1" oninput="onVarCalcInput(this)"></div>
               <div class="fg"><label>GAO Fijo ($/día)</label><input type="number" id="c_v_gaof" step="1" oninput="onVarCalcInput(this)"></div>
               <div class="fg"><label>GAD Directo ($/día)</label><input type="number" id="c_v_gaddir" step="1" oninput="onVarCalcInput(this)"></div>
               <div class="fg"><label>GAD Indirectos ($/día)</label><input type="number" id="c_v_gadind" step="1" oninput="onVarCalcInput(this)"></div>
@@ -361,11 +368,11 @@ body.simple-mode .cot-row2{grid-template-columns:1fr}
         <div class="ch"><div class="ct">Precio de Referencia (servicio actual)</div></div>
         <div class="cb">
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;text-align:center">
-            <div><div style="font-size:11px;color:var(--ink3);text-transform:uppercase;font-weight:700;letter-spacing:.4px">$/km neto</div>
+            <div><div id="lbl_ref_km" style="font-size:11px;color:var(--ink3);text-transform:uppercase;font-weight:700;letter-spacing:.4px">$/km neto</div>
               <div class="mn" style="font-size:20px;margin-top:5px" id="ref_km">—</div></div>
             <div><div style="font-size:11px;color:var(--ink3);text-transform:uppercase;font-weight:700;letter-spacing:.4px">$/día neto</div>
               <div class="mn" style="font-size:20px;margin-top:5px" id="ref_dia">—</div></div>
-            <div><div style="font-size:11px;color:var(--ink3);text-transform:uppercase;font-weight:700;letter-spacing:.4px">$/km c/IVA</div>
+            <div><div id="lbl_ref_km_iva" style="font-size:11px;color:var(--ink3);text-transform:uppercase;font-weight:700;letter-spacing:.4px">$/km c/IVA</div>
               <div class="mn" style="font-size:20px;margin-top:5px" id="ref_km_iva">—</div></div>
           </div>
         </div>
@@ -588,6 +595,24 @@ const EQUIPOS = {
   'tracto-cb80':   { nombre:'Tracto + Cama Baja 80T', unidad:'Km', util:80,
                       faena:  Object.assign({ gaov: 1296 + COMP.camabaja.faena.gaov,  gaof: COMP.tracto.faena.gaof  + COMP.camabaja.faena.gaof },  IND_RESPALDO.faena,  {gadDir:CB_GAD_DIR.faena,  gafDir:116267+COMP.camabaja.gafDir}),
                       matriz: Object.assign({ gaov: 1200 + COMP.camabaja.matriz.gaov, gaof: COMP.tracto.matriz.gaof + COMP.camabaja.matriz.gaof }, IND_RESPALDO.matriz, {gadDir:CB_GAD_DIR.matriz, gafDir:116267+COMP.camabaja.gafDir}) },
+
+  // --- Equipos de ARRIENDO (Tipo de Cotización = Arriendo) -----------------
+  // A diferencia de los equipos de Transporte de arriba, estos NO tienen
+  // Centro de Negocio "Matriz" (la planilla Valorizador solo trae una
+  // pestaña por equipo — "Retro"/"GH" — sin el concepto de "vuelta a
+  // matriz" que sí aplica al transporte de carga), por eso no llevan la
+  // llave "matriz": el resto del código detecta su ausencia y restringe
+  // "Tipo de Operación" a solo Faena para ellos (ver equipoTieneMatriz()).
+  // Además, su costo variable (GAOV) se mide por HORA de uso y no por
+  // Kilómetro — por eso llevan unidadVar:'Hr', que dispara las etiquetas
+  // dinámicas "$/hr"/"Horas de Uso" en vez de "$/km"/"Kilómetros del
+  // Roundtrip" (ver actualizarEtiquetasUnidad()). Valores copiados 1:1 de
+  // las pestañas "Retro" y "GH" de la planilla Valorizador (columna G,
+  // filas 2-11) el 07-09-2026.
+  'retro': { nombre:'Retro (Retroexcavadora)', unidad:'Hr', unidadVar:'Hr', categoria:'arriendo', util:25,
+    faena: { gaov:24352, gaof:2644, gadDir:96277, gadInd:5567, gafDir:71365, gafInd:2138, gag:842 } },
+  'gh': { nombre:'GH (Grúa Horquilla)', unidad:'Hr', unidadVar:'Hr', categoria:'arriendo', util:20,
+    faena: { gaov:11152, gaof:2644, gadDir:0, gadInd:5567, gafDir:71365, gafInd:2138, gag:842 } },
 };
 
 // Debe coincidir EXACTO con TOKEN_SEGURIDAD en google-apps-script.gs — sirve
@@ -710,15 +735,77 @@ function show(id) {
   if(id==='cfg') loadCfg();
 }
 
+// Agrupa el dropdown de "Tipo de Equipo" en dos <optgroup> (Transporte /
+// Arriendo) según EQUIPOS[k].categoria — puramente visual/organizativo:
+// el listado sigue mostrando TODOS los equipos siempre, sin filtrar según
+// "Tipo de Cotización" (así se pidió explícitamente), es solo para que sea
+// más fácil de ubicar cada equipo dentro de una lista que ya no es
+// homogénea.
 function poblarEquipos(){
   const sel = $('c_eq');
+  const grupos = {};
+  Object.keys(EQUIPOS).forEach(k=>{
+    const cat = EQUIPOS[k].categoria || 'transporte';
+    (grupos[cat] || (grupos[cat]=[])).push(k);
+  });
+  const opt = k => '<option value="'+k+'">'+EQUIPOS[k].nombre+'</option>';
+  const etiquetaGrupo = { transporte:'Transporte', arriendo:'Arriendo' };
   sel.innerHTML = '<option value="">— Seleccionar —</option>' +
-    Object.keys(EQUIPOS).map(k=>'<option value="'+k+'">'+EQUIPOS[k].nombre+'</option>').join('');
+    Object.keys(grupos).map(cat =>
+      '<optgroup label="'+(etiquetaGrupo[cat]||cat)+'">'+grupos[cat].map(opt).join('')+'</optgroup>'
+    ).join('');
+}
+
+// Unidad que gatilla el costo variable (GAOV) de un equipo: 'Km' para todo
+// el transporte de carga (por defecto, si el equipo no define unidadVar),
+// 'Hr' para los equipos de Arriendo (Retro, GH, ...) que se cotizan por
+// hora de uso en vez de kilómetros recorridos.
+const unidadVarEq = eq => (eq && eq.unidadVar) || 'Km';
+
+// Un equipo "tiene Matriz" solo si su entrada en EQUIPOS trae esa llave —
+// los equipos de Arriendo (Retro, GH) no la traen (ver EQUIPOS), porque la
+// planilla Valorizador no tiene pestaña "Matriz" para ellos.
+const equipoTieneMatriz = eqKey => !!(EQUIPOS[eqKey] && EQUIPOS[eqKey].matriz);
+
+// "Tipo de Operación" se restringe a solo Faena cuando (a) el usuario marcó
+// esta cotización/servicio como "Arriendo" — pedido explícito: en Arriendo
+// no se puede elegir Matriz — o (b) el equipo elegido directamente no tiene
+// datos de Matriz (Retro/GH), sea cual sea el Tipo de Cotización. Se llama
+// al cambiar de equipo y al cambiar Tipo de Cotización.
+function actualizarCentroDisponible(){
+  const eqKey = $('c_eq').value;
+  const esArriendo = $('c_tipocot') && $('c_tipocot').value === 'arriendo';
+  const soloFaena = esArriendo || !equipoTieneMatriz(eqKey);
+  const opMatriz = document.querySelector('#c_centro option[value="matriz"]');
+  if(opMatriz) opMatriz.style.display = soloFaena ? 'none' : '';
+  if(soloFaena && $('c_centro').value === 'matriz') $('c_centro').value = 'faena';
+}
+
+// Las etiquetas "Kilómetros del Roundtrip"/"$/km" solo tienen sentido para
+// equipos de Transporte — para los de Arriendo (Retro, GH, medidos por
+// hora) se muestran como "Horas de Uso"/"$/hr". El campo/variable interna
+// sigue llamándose "c_km"/"km" en todo el código (evita un refactor mayor);
+// solo cambia el TEXTO visible, según unidadVarEq() del equipo elegido.
+function actualizarEtiquetasUnidad(){
+  const eq = EQUIPOS[$('c_eq').value];
+  const u = unidadVarEq(eq).toLowerCase(); // 'km' | 'hr'
+  const lblCant = u==='hr' ? 'Horas de Uso' : 'Kilómetros del Roundtrip';
+  const elLbl = $('lbl_c_km'); if(elLbl) elLbl.textContent = lblCant;
+  const elGaov = $('lbl_gaov'); if(elGaov) elGaov.textContent = 'GAO Variable ($/'+u+')';
+  const elRef1 = $('lbl_ref_km'); if(elRef1) elRef1.textContent = '$/'+u+' neto';
+  const elRef2 = $('lbl_ref_km_iva'); if(elRef2) elRef2.textContent = '$/'+u+' c/iva';
+}
+
+function onTipoCotChange(){
+  actualizarCentroDisponible();
+  calcularPreview();
 }
 
 function onEqChange(){
   const eq = EQUIPOS[$('c_eq').value];
-  $('eq_label').textContent = eq ? eq.nombre : '—';
+  $('eq_label').textContent = eq ? (eq.nombre + (eq.categoria==='arriendo' ? ' · Arriendo' : '')) : '—';
+  actualizarCentroDisponible();
+  actualizarEtiquetasUnidad();
   poblarVariablesCalculo();
   calcularPreview();
 }
@@ -735,7 +822,8 @@ function poblarVariablesCalculo(){
   if(!eq){ if(box) box.style.display='none'; if(pvBox) pvBox.style.display='none'; return; }
   if(box) box.style.display='';
   if(pvBox) pvBox.style.display='';
-  const centroKey = $('c_centro').value || 'faena';
+  const centroReq = $('c_centro').value || 'faena';
+  const centroKey = eq[centroReq] ? centroReq : 'faena'; // Retro/GH no tienen 'matriz'
   const c = eq[centroKey];
   const campos = {
     c_v_gaov: c.gaov, c_v_gaof: c.gaof, c_v_gaddir: c.gadDir, c_v_gadind: c.gadInd,
@@ -789,8 +877,11 @@ function computarDraft(){
   const eqKey = $('c_eq').value;
   const eq = EQUIPOS[eqKey];
   if(!eq) return null;
-  const centroKey = $('c_centro').value || 'faena';
+  const centroReq = $('c_centro').value || 'faena';
+  const centroKey = eq[centroReq] ? centroReq : 'faena'; // Retro/GH no tienen 'matriz'
   const centro = CENTROS[centroKey];
+  const tipoCot = ($('c_tipocot') && $('c_tipocot').value) || 'transporte';
+  const unidadVar = unidadVarEq(eq); // 'Km' | 'Hr' — ver EQUIPOS
   const km    = parseFloat($('c_km').value)   || 0;
   const dias  = parseFloat($('c_dias').value) || 0;
   const uni   = parseFloat($('c_uni').value)  || 1;
@@ -826,8 +917,9 @@ function computarDraft(){
   // algunos servicios de más de 14 días requieren agregar un segundo
   // conductor, y ese costo (el directo, no los indirectos/pool) se duplica.
   const notaCond = conductores>1 ? (' × '+conductores+' conductores') : '';
+  const uVar = unidadVar.toLowerCase(); // 'km' | 'hr'
   const lineas = [
-    { familia:'GAO', tipo:'dir', concepto:'GAO Variable (Km)', nota: fCLP(gaov)+'/km · '+centro.nombre+ed(gaov,c.gaov), base: gaov*km, pct:1.0, subtotal: gaov*km },
+    { familia:'GAO', tipo:'dir', concepto:'GAO Variable ('+unidadVar+')', nota: fCLP(gaov)+'/'+uVar+' · '+centro.nombre+ed(gaov,c.gaov), base: gaov*km, pct:1.0, subtotal: gaov*km },
     { familia:'GAO', tipo:'dir', concepto:'GAO Fijo (Día)',    nota: fCLP(gaof)+'/día · '+centro.nombre+ed(gaof,c.gaof), base: gaof*dias, pct:1.0, subtotal: gaof*dias },
     { familia:'GAD', tipo:'dir', concepto:'GAD Directo (Día)', nota: fCLP(gadDir)+'/día'+notaCond+' · '+centro.nombre+ed(gadDir,c.gadDir), base: gadDir*dias*conductores, pct:1.0, subtotal: gadDir*dias*conductores },
     { familia:'GAD', tipo:'ind', concepto:'GAD Indirectos (Día)', nota: fCLP(gadInd)+'/día · '+centro.nombre+ed(gadInd,c.gadInd), base: gadInd*dias, pct:PCT_IND, subtotal: gadInd*dias },
@@ -858,6 +950,7 @@ function computarDraft(){
 
   return {
     eqKey, eqNombre: eq.nombre, centroKey, centroNombre: centro.nombre, unidad: eq.unidad,
+    unidadVar, tipoCot, categoria: eq.categoria || 'transporte',
     origen: $('c_ori').value, destino: $('c_dst').value, descripcion: $('c_desc').value,
     km, dias, unidades: uni, conductores, descTipo, descVal,
     lineas, porFam, costoNeto, util, precioVenta,
@@ -911,7 +1004,7 @@ function calcularPreview() {
   if(pvNote){
     if(d.precioManual){
       pvNote.innerHTML = 'Precio fijado manualmente en <strong>'+fCLP(d.precioVenta)+'</strong>'+
-        (d.utilImplicito!=null ? ' — implica un % Utilidad de <strong>'+fPct(d.utilImplicito)+'</strong> (automático: '+fPct(d.util)+', '+fCLP(d.precioVentaAuto)+')' : ' — completa km/días para calcular el % Utilidad implícito');
+        (d.utilImplicito!=null ? ' — implica un % Utilidad de <strong>'+fPct(d.utilImplicito)+'</strong> (automático: '+fPct(d.util)+', '+fCLP(d.precioVentaAuto)+')' : ' — completa '+d.unidadVar.toLowerCase()+'/días para calcular el % Utilidad implícito');
     } else {
       pvNote.textContent = 'Se calcula automáticamente con el % Utilidad del equipo ('+fPct(d.util)+(d.costoNeto>0?', '+fCLP(d.precioVentaAuto):'')+').';
     }
@@ -970,7 +1063,14 @@ function validarCamposServicio(){
   CAMPOS_REQUERIDOS_SERVICIO.forEach(c=>{
     const el=$(c.id);
     if(!el) return;
-    if(!(el.value||'').trim()){ faltantes.push(c); el.classList.add('invalid'); }
+    if(!(el.value||'').trim()){
+      // "Kilómetros del Roundtrip" se muestra como "Horas de Uso" para
+      // equipos de Arriendo (Retro, GH) — el mensaje de campo faltante usa
+      // la etiqueta que el usuario realmente está viendo en pantalla.
+      const label = (c.id==='c_km' && $('lbl_c_km')) ? $('lbl_c_km').textContent : c.label;
+      faltantes.push(Object.assign({}, c, {label}));
+      el.classList.add('invalid');
+    }
   });
   return faltantes;
 }
@@ -1014,9 +1114,9 @@ function renderItemsTable(){
   body.innerHTML = draftItems.map((it,i)=>
     '<tr>' +
     '<td class="letra">'+letra(i)+'</td>' +
-    '<td>'+it.eqNombre+'<br><span class="tm" style="font-size:11px">'+it.centroNombre+((it.conductores||1)>1?' · '+it.conductores+' conductores':'')+'</span></td>' +
+    '<td>'+it.eqNombre+(it.tipoCot==='arriendo'?' <span class="tm" style="font-size:10px;font-weight:700;background:var(--wab);color:var(--wa);padding:1px 5px;border-radius:3px">Arriendo</span>':'')+'<br><span class="tm" style="font-size:11px">'+it.centroNombre+((it.conductores||1)>1?' · '+it.conductores+' conductores':'')+'</span></td>' +
     '<td style="font-size:11.5px">'+(it.origen||'—')+' → '+(it.destino||'—')+'</td>' +
-    '<td class="n">'+it.km+' km<br><span class="tm" style="font-size:11px">'+it.dias+' días</span></td>' +
+    '<td class="n">'+it.km+' '+((it.unidadVar||'Km').toLowerCase()==='hr'?'hr':'km')+'<br><span class="tm" style="font-size:11px">'+it.dias+' días</span></td>' +
     '<td class="n mn">'+fCLP(it.precioVenta)+'</td>' +
     '<td class="n mn">'+(it.descuentoMonto>0?('-'+fCLP(it.descuentoMonto)):'—')+'</td>' +
     '<td class="n mn"><strong>'+fCLP(it.total)+'</strong></td>' +
@@ -1047,6 +1147,9 @@ function limpiarCot() {
   $('c_uni').value=1; $('c_cond').value=1; $('c_descval').value=0; $('c_desctipo').value='monto';
   $('c_mon').value='CLP'; $('c_vig').value=30; $('c_pago').value='30 días fecha factura';
   $('c_tv').value='Transporte';
+  if($('c_tipocot')) $('c_tipocot').value='transporte';
+  actualizarCentroDisponible();
+  actualizarEtiquetasUnidad();
   draftItems = [];
   renderItemsTable();
   renderTotales();
@@ -1445,6 +1548,8 @@ function aplicarModo(){
 document.addEventListener('DOMContentLoaded',()=>{
   load();
   poblarEquipos();
+  actualizarCentroDisponible();
+  actualizarEtiquetasUnidad();
   aplicarModo();
   $('c_fec').value=new Date().toISOString().split('T')[0];
   initNum();
