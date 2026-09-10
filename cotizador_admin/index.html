@@ -576,18 +576,42 @@ const CB_COSTOS = {
 };
 
 const EQUIPOS = {
-  'camioneta': { nombre:'Camioneta', unidad:'Km', util:25,
+  // Camioneta: pestañas manuales "CTa-M"/"CTa-F" (antes "Camioneta-M"/
+  // "Camioneta-F") leídas 1:1 el 10-09-2026 — corrige el GAD Directo de
+  // Matriz, que quedó con un valor especial ($189.222) de una versión
+  // anterior: la planilla ahora trae $94.611 para ambos centros (igual al
+  // respaldo compartido IND_RESPALDO), así que se saca el override.
+  // util:15 (no 25) — corregido para que coincida con el valor que ya
+  // entrega hoy el conector en vivo (ver EQUIPOS_SIN_REMOTO más abajo: este
+  // equipo SÍ acepta la sobreescritura remota, así que ya se estaba usando
+  // 15% en producción; esto solo corrige el respaldo local para cuando no
+  // hay conexión).
+  'camioneta': { nombre:'Camioneta', unidad:'Km', util:15,
     faena:  Object.assign({gaov:217, gaof:6151},  IND_RESPALDO.faena,  {gafDir:47535}),
-    matriz: Object.assign({gaov:177, gaof:8286},  IND_RESPALDO.matriz, {gadDir:189222, gafDir:47535}) },
+    matriz: Object.assign({gaov:177, gaof:8286},  IND_RESPALDO.matriz, {gafDir:47535}) },
   'camion-simple-34': { nombre:'Camión Simple 3-4T', unidad:'Km', util:25,
     faena:  Object.assign({gaov:225, gaof:5215},  IND_RESPALDO.faena,  {gafDir:31380}),
     matriz: Object.assign({gaov:167, gaof:13571}, IND_RESPALDO.matriz, {gafDir:31380}) },
   'camion-simple-1014': { nombre:'Camión Simple 10-14T', unidad:'Km', util:25,
     faena:  Object.assign({gaov:429, gaof:5215},  IND_RESPALDO.faena,  {gafDir:52424}),
     matriz: Object.assign({gaov:345, gaof:13571}, IND_RESPALDO.matriz, {gafDir:52424}) },
-  'camion-tolva': { nombre:'Camión Tolva', unidad:'Km', util:25,
-    faena:  Object.assign({gaov:1418, gaof:9288}, IND_RESPALDO.faena,  {gafDir:164091}),
-    matriz: Object.assign({gaov:602,  gaof:5028}, IND_RESPALDO.matriz, {gafDir:164091}) },
+  // Camión Simple con Brazo: variante de Camión Simple 10-14T con brazo/grúa
+  // agregado — mismo GAOV/GAOF base pero GAF Directos y % Utilidad propios
+  // (más altos, por el costo/margen del brazo). Pestañas "CS-F-Brazo"/
+  // "CS-M-Brazo" leídas 1:1 el 10-09-2026.
+  'camion-simple-brazo': { nombre:'Camión Simple con Brazo', unidad:'Km',
+    faena:  { gaov:429, gaof:5215,  gadDir:88151, gadInd:6690, gafDir:64852, gafInd:421, gag:1178, util:50 },
+    matriz: { gaov:345, gaof:13472, gadDir:88151, gadInd:6690, gafDir:64852, gafInd:421, gag:1178, util:50 } },
+  // Camión Tolva: ÚNICO equipo donde la unidad del GAO Variable cambia
+  // según el Centro de Operación — en Matriz se mide por Km y en Faena por
+  // Hora (confirmado por Frankar y en planilla Valorizador, pestañas
+  // "CT-M"/"CT-F": la columna "UNIDAD" de la fila GAOV dice "Km" en una y
+  // "Hora" en la otra) — por eso cada centro trae su propio "unidadVar"
+  // (ver unidadVarEq()). También tienen % Utilidad distinto (Matriz 25%,
+  // Faena 35%). Valores leídos 1:1 el 10-09-2026.
+  'camion-tolva': { nombre:'Camión Tolva', unidad:'Km',
+    faena:  { gaov:19153, gaof:9288, gadDir:189630, gadInd:5567, gafDir:82046, gafInd:2138, gag:842, util:35, unidadVar:'Hr' },
+    matriz: { gaov:602,   gaof:5028, gadDir:189630, gadInd:5567, gafDir:82046, gafInd:2138, gag:842, util:25, unidadVar:'Km' } },
   'tracto':        (()=>{ const c=armaCentros(['tracto']);            return { nombre:'Tracto',                 unidad:'Km', util:25, faena:c.faena, matriz:c.matriz }; })(),
   'tracto-batea':  (()=>{ const c=armaCentros(['tracto','batea']);    return { nombre:'Tracto + Batea',         unidad:'Km', util:25, faena:c.faena, matriz:c.matriz }; })(),
   'tracto-rampla': (()=>{ const c=armaCentros(['tracto','rampla']);   return { nombre:'Tracto + Rampla',        unidad:'Km', util:25, faena:c.faena, matriz:c.matriz }; })(),
@@ -690,10 +714,16 @@ const gsUrlActual = () => (ST.cfg && ST.cfg.gsUrl) || GAS_URL_DEFAULT;
 // pero el conector viejo todavía las lee como una sola pestaña compartida
 // (mismo costo y "% Utilidad" genéricos para Faena y Matriz). Si se le
 // permitiera pisar estos 3 equipos, perderían silenciosamente la
-// diferenciación Faena/Matriz recién cargada. Se excluyen de la
-// sobreescritura remota hasta que el conector se actualice y redespliegue
-// con el TAB_EQUIPOS nuevo (ver TAB_EQUIPOS en google-apps-script.gs).
-const EQUIPOS_SIN_REMOTO = { 'tracto-cb35':true, 'tracto-cb45':true, 'tracto-cb80':true };
+// diferenciación Faena/Matriz recién cargada. "camion-tolva" se agrega por
+// una razón más grave: el conector viejo todavía lo calcula con el método
+// legacy (pestaña "Value"), que solo entrega gaov/gaof — al no traer
+// gadDir/gadInd/gafDir/gafInd/gag, la función de abajo los pisaría con $0
+// (perdiendo esos costos por completo) y además perdería el "unidadVar"
+// por centro (Matriz=Km, Faena=Hr) que se acaba de cargar. Se excluyen de
+// la sobreescritura remota hasta que el conector se actualice y
+// redespliegue con el TAB_EQUIPOS nuevo (ver TAB_EQUIPOS en
+// google-apps-script.gs).
+const EQUIPOS_SIN_REMOTO = { 'tracto-cb35':true, 'tracto-cb45':true, 'tracto-cb80':true, 'camion-tolva':true };
 
 let ultimaActualizacionCostos = null;
 function aplicarCostosRemotos_(data){
@@ -817,7 +847,14 @@ function poblarEquipos(){
 // el transporte de carga (por defecto, si el equipo no define unidadVar),
 // 'Hr' para los equipos de Arriendo (Retro, GH, ...) que se cotizan por
 // hora de uso en vez de kilómetros recorridos.
-const unidadVarEq = eq => (eq && eq.unidadVar) || 'Km';
+// Unidad del costo variable (GAOV). Puede venir del CENTRO (c.unidadVar) o
+// del EQUIPO (eq.unidadVar) — Camión Tolva ("camion-tolva") es el único
+// caso donde difiere por centro: en Matriz se mide por Km y en Faena por
+// Hora (confirmado en planilla Valorizador, pestañas "CT-M"/"CT-F" —
+// "GAOV" viene en unidad "Km" en una y "Hora" en la otra). Por eso se
+// revisa primero el centro y solo se usa el valor del equipo (o 'Km' por
+// defecto) si el centro no trae uno propio.
+const unidadVarEq = (eq, c) => (c && c.unidadVar) || (eq && eq.unidadVar) || 'Km';
 
 // % Utilidad a usar para un equipo/centro dado. La mayoría de los equipos
 // traen un único "util" a nivel de equipo (igual en Faena y Matriz). Los
@@ -853,7 +890,9 @@ function actualizarCentroDisponible(){
 // solo cambia el TEXTO visible, según unidadVarEq() del equipo elegido.
 function actualizarEtiquetasUnidad(){
   const eq = EQUIPOS[$('c_eq').value];
-  const u = unidadVarEq(eq).toLowerCase(); // 'km' | 'hr'
+  const centroReq = $('c_centro').value || 'faena';
+  const centroKey = (eq && eq[centroReq]) ? centroReq : 'faena';
+  const u = unidadVarEq(eq, eq && eq[centroKey]).toLowerCase(); // 'km' | 'hr'
   const lblCant = u==='hr' ? 'Horas de Uso' : 'Kilómetros del Roundtrip';
   const elLbl = $('lbl_c_km'); if(elLbl) elLbl.textContent = lblCant;
   const elGaov = $('lbl_gaov'); if(elGaov) elGaov.textContent = 'GAO Variable ($/'+u+')';
@@ -946,7 +985,7 @@ function computarDraft(){
   const centroKey = eq[centroReq] ? centroReq : 'faena'; // Retro/GH no tienen 'matriz'
   const centro = CENTROS[centroKey];
   const tipoCot = ($('c_tipocot') && $('c_tipocot').value) || 'transporte';
-  const unidadVar = unidadVarEq(eq); // 'Km' | 'Hr' — ver EQUIPOS
+  const unidadVar = unidadVarEq(eq, eq[centroKey]); // 'Km' | 'Hr' — puede depender del centro (ver Camión Tolva en EQUIPOS)
   const km    = parseFloat($('c_km').value)   || 0;
   const dias  = parseFloat($('c_dias').value) || 0;
   const uni   = parseFloat($('c_uni').value)  || 1;
