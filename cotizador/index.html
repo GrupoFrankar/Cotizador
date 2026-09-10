@@ -532,12 +532,11 @@ const CENTROS = { faena: { nombre:'Faena' }, matriz: { nombre:'Matriz' } };
 // igual; ahora cada pestaña puede traer su propio valor, pero mientras no
 // hay conexión se sigue usando este mismo respaldo para todos, igual que
 // antes). GAD Directo también comparte respaldo, EXCEPTO para los combos
-// Tracto + Cama Baja, que ya usaban un valor propio (ver CB_GAD_DIR).
+// Tracto + Cama Baja, que ya usan un valor propio (ver CB_COSTOS).
 const IND_RESPALDO = {
   faena:  { gadDir: 94611, gadInd: 5567, gafInd: 2138, gag: 842  },
   matriz: { gadDir: 88151, gadInd: 6690, gafInd: 421,  gag: 1182 },
 };
-const CB_GAD_DIR = { faena: 100305, matriz: 93441 }; // Tracto + Cama Baja 35/45/80T
 
 const COMP = {
   tracto:   { faena:{gaov:852, gaof:5215},  matriz:{gaov:789, gaof:9300},  gafDir:116267 },
@@ -567,6 +566,15 @@ function armaCentros(keys, gadDirOverride){
   return out;
 }
 
+// Costo operativo (por Km/Día) de los combos Tracto + Cama Baja — igual
+// para 35T/45T/80T, ver comentario junto a 'tracto-cb35' más abajo. Leído
+// 1:1 de las pestañas "T+CB35-M"/"T+CB35-F" de la planilla Valorizador
+// (idéntico en las pestañas -45 y -80) el 10-09-2026.
+const CB_COSTOS = {
+  matriz: { gaov:840, gaof:10923, gadDir:93441, gadInd:6690, gafDir:156720, gafInd:421, gag:1178 },
+  faena:  { gaov:941, gaof:10923, gadDir:93441, gadInd:6690, gafDir:156720, gafInd:421, gag:1178 },
+};
+
 const EQUIPOS = {
   'camioneta': { nombre:'Camioneta', unidad:'Km', util:25,
     faena:  Object.assign({gaov:217, gaof:6151},  IND_RESPALDO.faena,  {gafDir:47535}),
@@ -583,36 +591,68 @@ const EQUIPOS = {
   'tracto':        (()=>{ const c=armaCentros(['tracto']);            return { nombre:'Tracto',                 unidad:'Km', util:25, faena:c.faena, matriz:c.matriz }; })(),
   'tracto-batea':  (()=>{ const c=armaCentros(['tracto','batea']);    return { nombre:'Tracto + Batea',         unidad:'Km', util:25, faena:c.faena, matriz:c.matriz }; })(),
   'tracto-rampla': (()=>{ const c=armaCentros(['tracto','rampla']);   return { nombre:'Tracto + Rampla',        unidad:'Km', util:25, faena:c.faena, matriz:c.matriz }; })(),
-  'tracto-cb35':   (()=>{ const c=armaCentros(['tracto','camabaja'], CB_GAD_DIR); return { nombre:'Tracto + Cama Baja 35T', unidad:'Km', util:35, faena:c.faena, matriz:c.matriz }; })(),
-  // Tracto + Cama Baja 45T y 80T: usan un tracto de mayor tonelaje (GAOV más alto), confirmado
-  // en planilla Valorizador → pestañas "T+CB45-M" y "T+CB80-M" (Matriz). El valor Faena de GAOV
-  // NO tiene pestaña de referencia en la planilla — se estimó proporcionalmente al alza que
-  // muestra el tracto estándar entre Matriz y Faena (852/789 ≈ 1,08). Pendiente de confirmar
-  // con Frankar si se agrega una pestaña "T+CB45-F"/"T+CB80-F" a la planilla.
-  'tracto-cb45':   { nombre:'Tracto + Cama Baja 45T', unidad:'Km', util:45,
-                      faena:  Object.assign({ gaov: 1064 + COMP.camabaja.faena.gaov,  gaof: COMP.tracto.faena.gaof  + COMP.camabaja.faena.gaof },  IND_RESPALDO.faena,  {gadDir:CB_GAD_DIR.faena,  gafDir:116267+COMP.camabaja.gafDir}),
-                      matriz: Object.assign({ gaov:  985 + COMP.camabaja.matriz.gaov, gaof: COMP.tracto.matriz.gaof + COMP.camabaja.matriz.gaof }, IND_RESPALDO.matriz, {gadDir:CB_GAD_DIR.matriz, gafDir:116267+COMP.camabaja.gafDir}) },
-  'tracto-cb80':   { nombre:'Tracto + Cama Baja 80T', unidad:'Km', util:80,
-                      faena:  Object.assign({ gaov: 1296 + COMP.camabaja.faena.gaov,  gaof: COMP.tracto.faena.gaof  + COMP.camabaja.faena.gaof },  IND_RESPALDO.faena,  {gadDir:CB_GAD_DIR.faena,  gafDir:116267+COMP.camabaja.gafDir}),
-                      matriz: Object.assign({ gaov: 1200 + COMP.camabaja.matriz.gaov, gaof: COMP.tracto.matriz.gaof + COMP.camabaja.matriz.gaof }, IND_RESPALDO.matriz, {gadDir:CB_GAD_DIR.matriz, gafDir:116267+COMP.camabaja.gafDir}) },
+  // Tracto + Cama Baja 35T/45T/80T: desde que la planilla Valorizador trae
+  // pestañas separadas "T+CB35/45/80-M" (Matriz) y "-F" (Faena), se
+  // confirmó que el costo operativo (GAOV/GAOF/GAD/GAF/GAG) es EL MISMO
+  // para las tres toneladas — lo único que cambia entre 35T/45T/80T es el
+  // % Utilidad (política comercial por tramo), no el costo del servicio.
+  // Por eso el costo vive una sola vez en CB_COSTOS y cada tonelada solo
+  // agrega su propio "util" por centro. A diferencia del resto de los
+  // equipos de Transporte (que traen un único % Utilidad para todo el
+  // equipo, igual en Faena y Matriz), aquí Faena es siempre 5 puntos más
+  // alto que Matriz — por eso "util" vive DENTRO de cada centro (c.util) y
+  // no al nivel del equipo (ver utilDe()). Valores leídos 1:1 de las 6
+  // pestañas de la planilla Valorizador (columna G, filas 2-11) el
+  // 10-09-2026.
+  'tracto-cb35':   { nombre:'Tracto + Cama Baja 35T', unidad:'Km',
+    faena:  Object.assign({}, CB_COSTOS.faena,  {util:40}),
+    matriz: Object.assign({}, CB_COSTOS.matriz, {util:35}) },
+  'tracto-cb45':   { nombre:'Tracto + Cama Baja 45T', unidad:'Km',
+    faena:  Object.assign({}, CB_COSTOS.faena,  {util:50}),
+    matriz: Object.assign({}, CB_COSTOS.matriz, {util:45}) },
+  'tracto-cb80':   { nombre:'Tracto + Cama Baja 80T', unidad:'Km',
+    faena:  Object.assign({}, CB_COSTOS.faena,  {util:85}),
+    matriz: Object.assign({}, CB_COSTOS.matriz, {util:80}) },
 
   // --- Equipos de ARRIENDO (Tipo de Cotización = Arriendo) -----------------
-  // A diferencia de los equipos de Transporte de arriba, estos NO tienen
-  // Centro de Negocio "Matriz" (la planilla Valorizador solo trae una
-  // pestaña por equipo — "Retro"/"GH" — sin el concepto de "vuelta a
-  // matriz" que sí aplica al transporte de carga), por eso no llevan la
-  // llave "matriz": el resto del código detecta su ausencia y restringe
-  // "Tipo de Operación" a solo Faena para ellos (ver equipoTieneMatriz()).
-  // Además, su costo variable (GAOV) se mide por HORA de uso y no por
-  // Kilómetro — por eso llevan unidadVar:'Hr', que dispara las etiquetas
-  // dinámicas "$/hr"/"Horas de Uso" en vez de "$/km"/"Kilómetros del
-  // Roundtrip" (ver actualizarEtiquetasUnidad()). Valores copiados 1:1 de
-  // las pestañas "Retro" y "GH" de la planilla Valorizador (columna G,
-  // filas 2-11) el 07-09-2026.
+  // A diferencia de los equipos de Transporte de arriba, la mayoría de
+  // estos NO tienen Centro de Negocio "Matriz" (la planilla Valorizador
+  // solo trae una pestaña por equipo, sin el concepto de "vuelta a matriz"
+  // que sí aplica al transporte de carga), por eso no llevan la llave
+  // "matriz": el resto del código detecta su ausencia y restringe "Tipo de
+  // Operación" a solo Faena para ellos (ver equipoTieneMatriz()). El
+  // Camión Aljibe ('ca') es la excepción: la planilla sí trae "CA-M" y
+  // "CA-F", así que lleva ambos centros, cada uno con su propio "util".
+  // Además, el costo variable (GAOV) de todos estos equipos se mide por
+  // HORA de uso y no por Kilómetro — por eso llevan unidadVar:'Hr', que
+  // dispara las etiquetas dinámicas "$/hr"/"Horas de Uso" en vez de
+  // "$/km"/"Kilómetros del Roundtrip" (ver actualizarEtiquetasUnidad()).
+  // Valores copiados 1:1 de sus pestañas en la planilla Valorizador
+  // (columna G, filas 2-11) el 10-09-2026. "MB" (Mini Bus) y "MC" (Mini
+  // Cargador) confirmados por Frankar.
   'retro': { nombre:'Retro (Retroexcavadora)', unidad:'Hr', unidadVar:'Hr', categoria:'arriendo', util:25,
     faena: { gaov:24352, gaof:2644, gadDir:96277, gadInd:5567, gafDir:71365, gafInd:2138, gag:842 } },
-  'gh': { nombre:'GH (Grúa Horquilla)', unidad:'Hr', unidadVar:'Hr', categoria:'arriendo', util:20,
-    faena: { gaov:11152, gaof:2644, gadDir:0, gadInd:5567, gafDir:71365, gafInd:2138, gag:842 } },
+  'gh': { nombre:'GH (Grúa Horquilla)', unidad:'Hr', unidadVar:'Hr', categoria:'arriendo', util:25,
+    faena: { gaov:11152, gaof:2644, gadDir:0, gadInd:5567, gafDir:48000, gafInd:2138, gag:842 } },
+  'mn': { nombre:'Motoniveladora', unidad:'Hr', unidadVar:'Hr', categoria:'arriendo', util:25,
+    faena: { gaov:33683, gaof:7965, gadDir:0, gadInd:5567, gafDir:160553, gafInd:2138, gag:842 } },
+  'rc': { nombre:'Rodillo Compactador', unidad:'Hr', unidadVar:'Hr', categoria:'arriendo', util:25,
+    faena: { gaov:19424, gaof:2153, gadDir:0, gadInd:5567, gafDir:55672, gafInd:2138, gag:842 } },
+  'ex200': { nombre:'Excavadora PC-210', unidad:'Hr', unidadVar:'Hr', categoria:'arriendo', util:25,
+    faena: { gaov:30559, gaof:2153, gadDir:0, gadInd:5567, gafDir:117675, gafInd:2138, gag:842 } },
+  'ex300': { nombre:'Excavadora PC-300', unidad:'Hr', unidadVar:'Hr', categoria:'arriendo', util:25,
+    faena: { gaov:40606, gaof:2153, gadDir:0, gadInd:5567, gafDir:275829, gafInd:2138, gag:842 } },
+  'ex450': { nombre:'Excavadora PC-450', unidad:'Hr', unidadVar:'Hr', categoria:'arriendo', util:25,
+    faena: { gaov:53098, gaof:2153, gadDir:0, gadInd:5567, gafDir:320792, gafInd:2138, gag:842 } },
+  'cf': { nombre:'Cargador Frontal', unidad:'Hr', unidadVar:'Hr', categoria:'arriendo', util:25,
+    faena: { gaov:35990, gaof:7965, gadDir:0, gadInd:5567, gafDir:222379, gafInd:2138, gag:842 } },
+  'ca': { nombre:'Camión Aljibe', unidad:'Hr', unidadVar:'Hr', categoria:'arriendo',
+    faena:  { gaov:852, gaof:76043, gadDir:93441, gadInd:6690, gafDir:116267, gafInd:2135, gag:842, util:30 },
+    matriz: { gaov:596, gaof:76043, gadDir:93441, gadInd:6690, gafDir:116267, gafInd:2135, gag:842, util:25 } },
+  'mb': { nombre:'Mini Bus', unidad:'Hr', unidadVar:'Hr', categoria:'arriendo', util:25,
+    faena: { gaov:269, gaof:3644, gadDir:0, gadInd:5567, gafDir:27603, gafInd:2138, gag:842 } },
+  'mc': { nombre:'Mini Cargador', unidad:'Hr', unidadVar:'Hr', categoria:'arriendo', util:25,
+    faena: { gaov:20017, gaof:7965, gadDir:0, gadInd:5567, gafDir:41473, gafInd:2138, gag:842 } },
 };
 
 // Debe coincidir EXACTO con TOKEN_SEGURIDAD en google-apps-script.gs — sirve
@@ -651,11 +691,18 @@ function aplicarCostosRemotos_(data){
     if(!local || !remoto) return;
     ['faena','matriz'].forEach(centro=>{
       const r = remoto[centro];
+      // Si el equipo/centro ya traía su propio % Utilidad (Tracto + Cama
+      // Baja, Camión Aljibe — ver utilDe()), se conserva salvo que el
+      // conector mande uno explícito para ESE centro (r.util); así no se
+      // pierde al reemplazar el resto de los componentes.
+      const utilPrevio = local[centro] && local[centro].util;
       if(r && (r.gaov>0 || r.gaof>0)) local[centro] = {
         gaov:r.gaov, gaof:r.gaof,
         gadDir:r.gadDir||0, gadInd:r.gadInd||0,
         gafDir:r.gafDir||0, gafInd:r.gafInd||0, gag:r.gag||0,
       };
+      if(r && r.util>0) local[centro].util = r.util;
+      else if(utilPrevio != null && local[centro]) local[centro].util = utilPrevio;
     });
     if(remoto.util>0) local.util = remoto.util;
   });
@@ -741,19 +788,15 @@ function show(id) {
 // "Tipo de Cotización" (así se pidió explícitamente), es solo para que sea
 // más fácil de ubicar cada equipo dentro de una lista que ya no es
 // homogénea.
+// Lista PLANA de equipos — pedido explícito: el selector no debe diferenciar
+// visualmente Transporte de Arriendo, solo entregar todos los equipos
+// disponibles en una sola lista (el campo "categoria" de EQUIPOS se sigue
+// usando para otras cosas — la etiqueta "· Arriendo" junto al nombre y la
+// restricción de Centro de Operación — pero ya no agrupa el <select>).
 function poblarEquipos(){
   const sel = $('c_eq');
-  const grupos = {};
-  Object.keys(EQUIPOS).forEach(k=>{
-    const cat = EQUIPOS[k].categoria || 'transporte';
-    (grupos[cat] || (grupos[cat]=[])).push(k);
-  });
   const opt = k => '<option value="'+k+'">'+EQUIPOS[k].nombre+'</option>';
-  const etiquetaGrupo = { transporte:'Transporte', arriendo:'Arriendo' };
-  sel.innerHTML = '<option value="">— Seleccionar —</option>' +
-    Object.keys(grupos).map(cat =>
-      '<optgroup label="'+(etiquetaGrupo[cat]||cat)+'">'+grupos[cat].map(opt).join('')+'</optgroup>'
-    ).join('');
+  sel.innerHTML = '<option value="">— Seleccionar —</option>' + Object.keys(EQUIPOS).map(opt).join('');
 }
 
 // Unidad que gatilla el costo variable (GAOV) de un equipo: 'Km' para todo
@@ -761,6 +804,14 @@ function poblarEquipos(){
 // 'Hr' para los equipos de Arriendo (Retro, GH, ...) que se cotizan por
 // hora de uso en vez de kilómetros recorridos.
 const unidadVarEq = eq => (eq && eq.unidadVar) || 'Km';
+
+// % Utilidad a usar para un equipo/centro dado. La mayoría de los equipos
+// traen un único "util" a nivel de equipo (igual en Faena y Matriz). Los
+// combos Tracto + Cama Baja y el Camión Aljibe son la excepción: Faena y
+// Matriz tienen % Utilidad DISTINTO (confirmado en la planilla
+// Valorizador), así que ese util vive dentro de cada centro (c.util) y
+// tiene prioridad sobre el del equipo si está definido.
+const utilDe = (eq, c) => (c && c.util != null) ? c.util : (eq && eq.util);
 
 // Un equipo "tiene Matriz" solo si su entrada en EQUIPOS trae esa llave —
 // los equipos de Arriendo (Retro, GH) no la traen (ver EQUIPOS), porque la
@@ -827,7 +878,7 @@ function poblarVariablesCalculo(){
   const c = eq[centroKey];
   const campos = {
     c_v_gaov: c.gaov, c_v_gaof: c.gaof, c_v_gaddir: c.gadDir, c_v_gadind: c.gadInd,
-    c_v_gafdir: c.gafDir, c_v_gafind: c.gafInd, c_v_gag: c.gag, c_v_util: eq.util,
+    c_v_gafdir: c.gafDir, c_v_gafind: c.gafInd, c_v_gag: c.gag, c_v_util: utilDe(eq, c),
   };
   Object.keys(campos).forEach(id=>{
     const el = $(id);
@@ -907,7 +958,7 @@ function computarDraft(){
   const gafDir  = leerVar('c_v_gafdir', c.gafDir);
   const gafInd  = leerVar('c_v_gafind', c.gafInd);
   const gag     = leerVar('c_v_gag',    c.gag);
-  const util    = leerVar('c_v_util',   eq.util);
+  const util    = leerVar('c_v_util',   utilDe(eq, c));
   // Marca "(editado)" en la nota de cada línea cuyo valor difiere del que
   // trae la planilla Valorizador, para que quede claro en el detalle qué se
   // ajustó manualmente para este servicio.
