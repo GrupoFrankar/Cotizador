@@ -224,9 +224,7 @@ body.simple-mode .cot-row2{grid-template-columns:1fr}
             </select>
           </div>
           <div class="fg s2"><label>Tipo de Venta</label>
-            <select id="c_tv">
-              <option>Transporte</option>
-            </select>
+            <input type="text" id="c_tv" readonly title="Se calcula solo, según los servicios agregados abajo">
           </div>
         </div>
       </div>
@@ -246,9 +244,9 @@ body.simple-mode .cot-row2{grid-template-columns:1fr}
             </div>
             <div class="fg s2">
               <label>Tipo de Equipo</label>
-              <select id="c_eq" onchange="onEqChange()">
-                <option value="">— Seleccionar —</option>
-              </select>
+              <input type="text" id="c_eq_txt" list="c_eq_list" autocomplete="off" placeholder="Escribe para buscar…" oninput="onEqTextInput()" onchange="onEqTextChange()">
+              <datalist id="c_eq_list"></datalist>
+              <input type="hidden" id="c_eq">
             </div>
             <div class="fg s2">
               <label>Tipo de Operación</label>
@@ -826,21 +824,72 @@ function show(id) {
   if(id==='cfg') loadCfg();
 }
 
-// Agrupa el dropdown de "Tipo de Equipo" en dos <optgroup> (Transporte /
-// Arriendo) según EQUIPOS[k].categoria — puramente visual/organizativo:
-// el listado sigue mostrando TODOS los equipos siempre, sin filtrar según
-// "Tipo de Cotización" (así se pidió explícitamente), es solo para que sea
-// más fácil de ubicar cada equipo dentro de una lista que ya no es
-// homogénea.
-// Lista PLANA de equipos — pedido explícito: el selector no debe diferenciar
-// visualmente Transporte de Arriendo, solo entregar todos los equipos
-// disponibles en una sola lista (el campo "categoria" de EQUIPOS se sigue
-// usando para otras cosas — la etiqueta "· Arriendo" junto al nombre y la
-// restricción de Centro de Operación — pero ya no agrupa el <select>).
+// Equipos que corresponde ofrecer en "Tipo de Equipo" según el "Tipo de
+// Cotización" elegido para ESTE servicio:
+//   - Arriendo: TODOS los equipos — cualquier equipo se puede arrendar,
+//     incluidos los de Transporte (Camioneta, Tracto, etc.).
+//   - Transporte: todos EXCEPTO los que son "solo Arriendo" — los que no
+//     tienen pestaña Matriz en la planilla Valorizador (Retro, GH,
+//     Motoniveladora, Rodillo Compactador, Excavadoras, Cargador Frontal,
+//     Mini Bus, Mini Cargador — ver equipoTieneMatriz()), porque esos no
+//     tienen sentido como transporte de carga. Los equipos con ambos
+//     centros (incluido Camión Aljibe, que también es de Arriendo pero SÍ
+//     tiene Matriz) se ofrecen igual en Transporte.
+function equiposDisponibles(){
+  const tipoCot = ($('c_tipocot') && $('c_tipocot').value) || 'transporte';
+  return Object.keys(EQUIPOS).filter(k => tipoCot === 'arriendo' || equipoTieneMatriz(k));
+}
+
+// "Tipo de Equipo" es un campo de texto con autocompletado (<input> +
+// <datalist>) en vez de un <select> — permite escribir para buscar en una
+// lista que ya tiene más de 20 equipos, cosa que un <select> nativo no deja
+// hacer bien. El valor REAL (la key de EQUIPOS) vive en el input oculto
+// "c_eq", que es al que sigue apuntando todo el resto del código (igual que
+// antes); el input visible "c_eq_txt" solo muestra/edita el nombre. Se
+// repuebla cada vez que cambia el "Tipo de Cotización" (ver
+// equiposDisponibles()), y si el equipo elegido deja de estar disponible
+// (ej. tenías "Retro" y cambiaste a Transporte), se deselecciona solo.
 function poblarEquipos(){
-  const sel = $('c_eq');
-  const opt = k => '<option value="'+k+'">'+EQUIPOS[k].nombre+'</option>';
-  sel.innerHTML = '<option value="">— Seleccionar —</option>' + Object.keys(EQUIPOS).map(opt).join('');
+  const keys = equiposDisponibles();
+  const dl = $('c_eq_list');
+  if(dl) dl.innerHTML = keys.map(k => '<option value="'+EQUIPOS[k].nombre+'">').join('');
+  if(keys.indexOf($('c_eq').value) === -1){
+    $('c_eq').value = '';
+    $('c_eq_txt').value = '';
+  }
+}
+
+// Sincroniza el input de texto visible con el equipo actualmente guardado
+// en el input oculto "c_eq" — hace falta llamarla cada vez que "c_eq" se
+// fija por código en vez de por tipeo (ej. limpiarCot()).
+function sincronizarEqTexto(){
+  const eq = EQUIPOS[$('c_eq').value];
+  $('c_eq_txt').value = eq ? eq.nombre : '';
+}
+
+// Sin tildes y en minúscula, para que "camion" encuentre "Camión" aunque el
+// usuario no escriba el acento.
+const _normalizaTexto = s => (s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+
+// Se dispara con cada tecla: en cuanto lo escrito calza EXACTO (ignorando
+// tildes/mayúsculas) con el nombre de un equipo disponible, se resuelve la
+// selección al vuelo — no hace falta tocar el mouse ni esperar a salir del
+// campo para que el resto del formulario (Centro de Operación, Variables de
+// Cálculo, etc.) se actualice.
+function onEqTextInput(){
+  const texto = _normalizaTexto($('c_eq_txt').value);
+  const keys = equiposDisponibles();
+  const match = keys.find(k => _normalizaTexto(EQUIPOS[k].nombre) === texto);
+  $('c_eq').value = match || '';
+  onEqChange();
+}
+
+// Al salir del campo (blur): si quedó texto que no corresponde a ningún
+// equipo disponible (a medio escribir, con un typo, etc.), se limpia para
+// no dejar texto suelto que parezca una selección válida.
+function onEqTextChange(){
+  onEqTextInput();
+  if(!$('c_eq').value) $('c_eq_txt').value = '';
 }
 
 // Unidad que gatilla el costo variable (GAOV) de un equipo: 'Km' para todo
@@ -901,7 +950,11 @@ function actualizarEtiquetasUnidad(){
 }
 
 function onTipoCotChange(){
+  poblarEquipos(); // re-filtra "Tipo de Equipo" (ver equiposDisponibles()) — puede deseleccionar el equipo actual si ya no aplica
+  sincronizarEqTexto();
   actualizarCentroDisponible();
+  actualizarEtiquetasUnidad();
+  poblarVariablesCalculo();
   calcularPreview();
 }
 
@@ -1229,7 +1282,22 @@ function renderItemsTable(){
   ).join('');
 }
 
+// "Tipo de Venta" (campo de solo lectura en "Datos de la Cotización") ya
+// no se elige a mano: se calcula solo a partir del "Tipo de Cotización" de
+// cada servicio agregado — pedido explícito, porque una misma cotización
+// puede mezclar servicios de Transporte y de Arriendo, y clasificar toda
+// la cotización con un solo valor fijo era confuso (y, en el historial de
+// Google Sheets, incorrecto — ver filasParaSheet(), que ahora usa el Tipo
+// de Cotización de CADA servicio, no este resumen).
+const TIPO_VENTA_LABEL = { transporte:'Transporte', arriendo:'Arriendo' };
+function tipoVentaResumen(){
+  if(!draftItems.length) return 'Transporte';
+  const tipos = new Set(draftItems.map(it => TIPO_VENTA_LABEL[it.tipoCot] || 'Transporte'));
+  return tipos.size > 1 ? 'Transporte + Arriendo' : tipos.values().next().value;
+}
+
 function renderTotales(){
+  if($('c_tv')) $('c_tv').value = tipoVentaResumen();
   const cn = draftItems.reduce((s,i)=>s+i.costoNeto,0);
   const ut = draftItems.reduce((s,i)=>s+(i.precioVenta-i.costoNeto),0);
   const neto = draftItems.reduce((s,i)=>s+i.precioVenta,0);
@@ -1247,16 +1315,16 @@ function renderTotales(){
 
 function limpiarCot() {
   ['c_emp','c_rut','c_ctc','c_tel','c_mail','c_dir','c_com','c_ciu','c_desc','c_ori','c_dst'].forEach(id=>{const el=$(id);if(el)el.value='';});
-  $('c_eq').value=''; $('c_centro').value='faena'; $('c_km').value=''; $('c_dias').value='';
+  $('c_eq').value=''; $('c_eq_txt').value=''; $('c_centro').value='faena'; $('c_km').value=''; $('c_dias').value='';
   $('c_uni').value=1; $('c_cond').value=1; $('c_descval').value=0; $('c_desctipo').value='monto';
   $('c_mon').value='CLP'; $('c_vig').value=30; $('c_pago').value='30 días fecha factura';
-  $('c_tv').value='Transporte';
   if($('c_tipocot')) $('c_tipocot').value='transporte';
+  poblarEquipos(); // vuelve a la lista de Transporte (ver equiposDisponibles())
   actualizarCentroDisponible();
   actualizarEtiquetasUnidad();
   draftItems = [];
   renderItemsTable();
-  renderTotales();
+  renderTotales(); // recalcula "Tipo de Venta" (queda en "Transporte" con 0 servicios — ver tipoVentaResumen())
   calcularPreview();
   $('eq_label').textContent='—';
   $('vc_box').style.display='none';
@@ -1284,7 +1352,9 @@ const CAMPOS_REQUERIDOS_COT = [
   {id:'c_vig', label:'Vigencia (días)'},
   {id:'c_mon', label:'Moneda'},
   {id:'c_pago', label:'Condición de Pago'},
-  {id:'c_tv', label:'Tipo de Venta'},
+  // "Tipo de Venta" ya no es un campo que se llene a mano — se calcula solo
+  // desde los servicios agregados (ver tipoVentaResumen()), así que no
+  // corresponde exigirlo/validarlo acá.
 ];
 
 function limpiarInvalidos(){
@@ -1350,7 +1420,10 @@ function filasParaSheet(cot){
   const anio = (cot.fecha||'').slice(0,4);
   return cot.items.map((it,i)=>({
     numero: cot.numero, fecha: cot.fecha, anio: anio, cliente: cot.cliente.empresa,
-    tipoVenta: cot.conds.tipoVenta, maquina: it.eqNombre+' — '+it.centroNombre,
+    // Por SERVICIO, no por cotización — una misma cotización puede tener
+    // filas de Transporte y de Arriendo mezcladas (ver tipoVentaResumen()).
+    tipoVenta: TIPO_VENTA_LABEL[it.tipoCot] || cot.conds.tipoVenta || 'Transporte',
+    maquina: it.eqNombre+' — '+it.centroNombre,
     origen: it.origen, destino: it.destino, km: it.km, dias: it.dias,
     unidad: 'Días', cantidad: it.dias,
     precioUnitario: Math.round(it.precioUnitario), descuento: Math.round(it.descuentoMonto),
