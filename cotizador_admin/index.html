@@ -682,10 +682,24 @@ const gsUrlActual = () => (ST.cfg && ST.cfg.gsUrl) || GAS_URL_DEFAULT;
 // equipo/centro puntual (ej. todavía no existe esa pestaña Faena), el
 // cotizador sigue usando el valor local en vez de pisarlo con un $0 que
 // arruinaría el cálculo silenciosamente.
+// El conector Apps Script desplegado actualmente (google-apps-script.gs
+// LOCAL tiene los cambios de hoy, pero NO se ha vuelto a desplegar — ver
+// comentario junto a TOKEN_CONECTOR) quedó desactualizado el 10-09-2026
+// cuando se reorganizó la planilla Valorizador: Tracto + Cama Baja pasó a
+// tener pestañas "-M"/"-F" separadas con % Utilidad DISTINTO por centro,
+// pero el conector viejo todavía las lee como una sola pestaña compartida
+// (mismo costo y "% Utilidad" genéricos para Faena y Matriz). Si se le
+// permitiera pisar estos 3 equipos, perderían silenciosamente la
+// diferenciación Faena/Matriz recién cargada. Se excluyen de la
+// sobreescritura remota hasta que el conector se actualice y redespliegue
+// con el TAB_EQUIPOS nuevo (ver TAB_EQUIPOS en google-apps-script.gs).
+const EQUIPOS_SIN_REMOTO = { 'tracto-cb35':true, 'tracto-cb45':true, 'tracto-cb80':true };
+
 let ultimaActualizacionCostos = null;
 function aplicarCostosRemotos_(data){
   if(!data || !data.ok || !data.equipos) return false;
   Object.keys(data.equipos).forEach(key=>{
+    if(EQUIPOS_SIN_REMOTO[key]) return;
     const local = EQUIPOS[key];
     const remoto = data.equipos[key];
     if(!local || !remoto) return;
