@@ -62,8 +62,12 @@ input[type=number]{font-variant-numeric:tabular-nums}
 .rb::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--terra)}
 .rb.admin-cols{grid-template-columns:repeat(6,1fr)}
 .rb.simple-cols{grid-template-columns:repeat(4,1fr)}
-.cot-row2{display:grid;grid-template-columns:420px 1fr;gap:20px;align-items:start}
-body.simple-mode .cot-row2{grid-template-columns:1fr}
+/* "Agregar Servicio" y "Detalle del Servicio Actual" apilados en una sola
+   columna (antes iban lado a lado, 420px + resto) — "Agregar Servicio" así
+   queda como bloque horizontal de ancho completo, con más espacio para que
+   se vean bien las Variables de Cálculo (grid de 4 columnas), y "Detalle"
+   queda debajo en vez de al lado (pedido explícito). */
+.cot-row2{display:grid;grid-template-columns:1fr;gap:20px;align-items:start}
 .ri{text-align:center}.rl{font-size:10.5px;opacity:.68;font-weight:700;text-transform:uppercase;letter-spacing:.6px}
 .rv{font-variant-numeric:tabular-nums;font-size:19px;font-weight:600;margin-top:4px}.rv.big{font-size:25px}
 .dt{width:100%;border-collapse:collapse;font-size:13px}
@@ -223,9 +227,10 @@ body.simple-mode .cot-row2{grid-template-columns:1fr}
               <option>Crédito 61 días</option><option>Contado</option><option>Contra entrega</option><option>A convenir</option>
             </select>
           </div>
-          <div class="fg s2"><label>Tipo de Venta</label>
-            <input type="text" id="c_tv" readonly title="Se calcula solo, según los servicios agregados abajo">
-          </div>
+          <!-- "Tipo de Venta" ya no se muestra en pantalla (pedido explícito) — se
+               sigue calculando solo internamente vía tipoVentaResumen() para el
+               historial/planilla (ver filasParaSheet()), en un input oculto. -->
+          <input type="hidden" id="c_tv">
         </div>
       </div>
     </div>
@@ -234,7 +239,7 @@ body.simple-mode .cot-row2{grid-template-columns:1fr}
     <div class="card">
       <div class="ch"><div class="ct">Agregar Servicio</div></div>
       <div class="cb">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:11px">
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:11px">
             <div class="fg s2">
               <label>Tipo de Cotización</label>
               <select id="c_tipocot" onchange="onTipoCotChange()">
@@ -291,6 +296,7 @@ body.simple-mode .cot-row2{grid-template-columns:1fr}
             </div>
             <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:9px">
               <div class="fg"><label id="lbl_gaov">GAO Variable ($/km)</label><input type="number" id="c_v_gaov" step="1" oninput="onVarCalcInput(this)"></div>
+              <div class="fg"><label id="lbl_combustible">Combustible ($/km)</label><input type="number" id="c_v_combustible" step="1" oninput="onVarCalcInput(this)"></div>
               <div class="fg"><label>GAO Fijo ($/día)</label><input type="number" id="c_v_gaof" step="1" oninput="onVarCalcInput(this)"></div>
               <div class="fg"><label>GAD Directo ($/día)</label><input type="number" id="c_v_gaddir" step="1" oninput="onVarCalcInput(this)"></div>
               <div class="fg"><label>GAD Indirectos ($/día)</label><input type="number" id="c_v_gadind" step="1" oninput="onVarCalcInput(this)"></div>
@@ -536,8 +542,16 @@ const IND_RESPALDO = {
   matriz: { gadDir: 88151, gadInd: 6690, gafInd: 421,  gag: 1182 },
 };
 
+// gaov de "tracto" viene neto de Combustible (Diésel) — el GAOV original de
+// la pestaña ($852 Faena / $789 Matriz) incluye $667/$667 de Diésel, que
+// ahora se separa como campo propio (ver "combustible" en EQUIPOS/Variables
+// de Cálculo) para poder editarlo aparte del resto del costo variable
+// (mantención, neumáticos, lubricantes...). Batea/Cama Baja/Rampla no tienen
+// línea de Diésel en la planilla (son acoplados, no llevan motor propio), así
+// que no aportan combustible — por eso armaCentros() suma "combustible" con
+// (COMP[k][c].combustible||0) sin que estos tres necesiten declararlo.
 const COMP = {
-  tracto:   { faena:{gaov:852, gaof:5215},  matriz:{gaov:789, gaof:9300},  gafDir:116267 },
+  tracto:   { faena:{gaov:185, gaof:5215, combustible:667},  matriz:{gaov:122, gaof:9300, combustible:667},  gafDir:116267 },
   batea:    { faena:{gaov:87,  gaof:1623},  matriz:{gaov:50,  gaof:1623},  gafDir:37263  },
   camabaja: { faena:{gaov:89,  gaof:1623},  matriz:{gaov:51,  gaof:1623},  gafDir:40453  },
   rampla:   { faena:{gaov:85,  gaof:1623},  matriz:{gaov:49,  gaof:1623},  gafDir:27188  },
@@ -559,6 +573,10 @@ function armaCentros(keys, gadDirOverride){
       gafDir: keys.reduce((s,k)=>s+COMP[k].gafDir,0),
       gafInd: ind.gafInd,
       gag: ind.gag,
+      // Combustible (Diésel) de cada componente, sumado igual que gaov/gaof
+      // — Batea/Cama Baja/Rampla no declaran "combustible" (no tienen línea
+      // de Diésel propia), así que aportan $0 sin necesidad de listarlo.
+      combustible: keys.reduce((s,k)=>s+(COMP[k][c].combustible||0),0),
     };
   });
   return out;
@@ -568,9 +586,12 @@ function armaCentros(keys, gadDirOverride){
 // para 35T/45T/80T, ver comentario junto a 'tracto-cb35' más abajo. Leído
 // 1:1 de las pestañas "T+CB35-M"/"T+CB35-F" de la planilla Valorizador
 // (idéntico en las pestañas -45 y -80) el 10-09-2026.
+// gaov neto de Combustible (Diésel): $667 Faena / $667 Matriz (igual al de
+// "tracto" solo — Cama Baja no aporta, no tiene línea de Diésel propia), ver
+// comentario de COMP.tracto más arriba.
 const CB_COSTOS = {
-  matriz: { gaov:840, gaof:10923, gadDir:93441, gadInd:6690, gafDir:156720, gafInd:421, gag:1178 },
-  faena:  { gaov:941, gaof:10923, gadDir:93441, gadInd:6690, gafDir:156720, gafInd:421, gag:1178 },
+  matriz: { gaov:173, gaof:10923, gadDir:93441, gadInd:6690, gafDir:156720, gafInd:421, gag:1178, combustible:667 },
+  faena:  { gaov:274, gaof:10923, gadDir:93441, gadInd:6690, gafDir:156720, gafInd:421, gag:1178, combustible:667 },
 };
 
 const EQUIPOS = {
@@ -584,22 +605,31 @@ const EQUIPOS = {
   // equipo SÍ acepta la sobreescritura remota, así que ya se estaba usando
   // 15% en producción; esto solo corrige el respaldo local para cuando no
   // hay conexión).
+  // gaov de todos los equipos de abajo viene neto de Combustible (Diésel) —
+  // se separó como campo propio "combustible" (leído 1:1 de la pestaña GAO,
+  // fila "Diésel", el 10-09-2026) para poder editarlo aparte del resto del
+  // costo variable — es el componente que más cambia (precio del diésel) y
+  // antes quedaba mezclado dentro de un solo GAO Variable. Ver también
+  // "Combustible" en el panel Variables de Cálculo / poblarVariablesCalculo().
   'camioneta': { nombre:'Camioneta', unidad:'Km', util:15,
-    faena:  Object.assign({gaov:217, gaof:6151},  IND_RESPALDO.faena,  {gafDir:47535}),
-    matriz: Object.assign({gaov:177, gaof:8286},  IND_RESPALDO.matriz, {gafDir:47535}) },
+    faena:  Object.assign({gaov:117, gaof:6151, combustible:100},  IND_RESPALDO.faena,  {gafDir:47535}),
+    matriz: Object.assign({gaov:91,  gaof:8286, combustible:86},   IND_RESPALDO.matriz, {gafDir:47535}) },
   'camion-simple-34': { nombre:'Camión Simple 3-4T', unidad:'Km', util:25,
-    faena:  Object.assign({gaov:225, gaof:5215},  IND_RESPALDO.faena,  {gafDir:31380}),
-    matriz: Object.assign({gaov:167, gaof:13571}, IND_RESPALDO.matriz, {gafDir:31380}) },
+    faena:  Object.assign({gaov:92, gaof:5215,  combustible:133}, IND_RESPALDO.faena,  {gafDir:31380}),
+    matriz: Object.assign({gaov:58, gaof:13571, combustible:109}, IND_RESPALDO.matriz, {gafDir:31380}) },
   'camion-simple-1014': { nombre:'Camión Simple 10-14T', unidad:'Km', util:25,
-    faena:  Object.assign({gaov:429, gaof:5215},  IND_RESPALDO.faena,  {gafDir:52424}),
-    matriz: Object.assign({gaov:345, gaof:13571}, IND_RESPALDO.matriz, {gafDir:52424}) },
+    faena:  Object.assign({gaov:129, gaof:5215,  combustible:300}, IND_RESPALDO.faena,  {gafDir:52424}),
+    matriz: Object.assign({gaov:78,  gaof:13571, combustible:267}, IND_RESPALDO.matriz, {gafDir:52424}) },
   // Camión Simple con Brazo: variante de Camión Simple 10-14T con brazo/grúa
-  // agregado — mismo GAOV/GAOF base pero GAF Directos y % Utilidad propios
-  // (más altos, por el costo/margen del brazo). Pestañas "CS-F-Brazo"/
-  // "CS-M-Brazo" leídas 1:1 el 10-09-2026.
+  // agregado — mismo GAOV/GAOF/Combustible base pero GAF Directos y %
+  // Utilidad propios (más altos, por el costo/margen del brazo). Pestañas
+  // "CS-F-Brazo"/"CS-M-Brazo" leídas 1:1 el 10-09-2026 — no traen su propio
+  // desglose de Combustible (no están en la pestaña GAO consolidada), pero
+  // como el comentario original ya confirmaba que comparten GAOV/GAOF con
+  // Camión Simple 10-14T, se reutiliza el mismo split de Combustible.
   'camion-simple-brazo': { nombre:'Camión Simple con Brazo', unidad:'Km',
-    faena:  { gaov:429, gaof:5215,  gadDir:88151, gadInd:6690, gafDir:64852, gafInd:421, gag:1178, util:50 },
-    matriz: { gaov:345, gaof:13472, gadDir:88151, gadInd:6690, gafDir:64852, gafInd:421, gag:1178, util:50 } },
+    faena:  { gaov:129, gaof:5215,  gadDir:88151, gadInd:6690, gafDir:64852, gafInd:421, gag:1178, util:50, combustible:300 },
+    matriz: { gaov:78,  gaof:13472, gadDir:88151, gadInd:6690, gafDir:64852, gafInd:421, gag:1178, util:50, combustible:267 } },
   // Camión Tolva: ÚNICO equipo donde la unidad del GAO Variable cambia
   // según el Centro de Operación — en Matriz se mide por Km y en Faena por
   // Hora (confirmado por Frankar y en planilla Valorizador, pestañas
@@ -608,8 +638,8 @@ const EQUIPOS = {
   // (ver unidadVarEq()). También tienen % Utilidad distinto (Matriz 25%,
   // Faena 35%). Valores leídos 1:1 el 10-09-2026.
   'camion-tolva': { nombre:'Camión Tolva', unidad:'Km',
-    faena:  { gaov:19153, gaof:9288, gadDir:189630, gadInd:5567, gafDir:82046, gafInd:2138, gag:842, util:35, unidadVar:'Hr' },
-    matriz: { gaov:602,   gaof:5028, gadDir:189630, gadInd:5567, gafDir:82046, gafInd:2138, gag:842, util:25, unidadVar:'Km' } },
+    faena:  { gaov:5953, gaof:9288, gadDir:189630, gadInd:5567, gafDir:82046, gafInd:2138, gag:842, util:35, unidadVar:'Hr', combustible:13200 },
+    matriz: { gaov:122,  gaof:5028, gadDir:189630, gadInd:5567, gafDir:82046, gafInd:2138, gag:842, util:25, unidadVar:'Km', combustible:480 } },
   'tracto':        (()=>{ const c=armaCentros(['tracto']);            return { nombre:'Tracto',                 unidad:'Km', util:25, faena:c.faena, matriz:c.matriz }; })(),
   'tracto-batea':  (()=>{ const c=armaCentros(['tracto','batea']);    return { nombre:'Tracto + Batea',         unidad:'Km', util:25, faena:c.faena, matriz:c.matriz }; })(),
   'tracto-rampla': (()=>{ const c=armaCentros(['tracto','rampla']);   return { nombre:'Tracto + Rampla',        unidad:'Km', util:25, faena:c.faena, matriz:c.matriz }; })(),
@@ -652,29 +682,33 @@ const EQUIPOS = {
   // Valores copiados 1:1 de sus pestañas en la planilla Valorizador
   // (columna G, filas 2-11) el 10-09-2026. "MB" (Mini Bus) y "MC" (Mini
   // Cargador) confirmados por Frankar.
-  'retro': { nombre:'Retro (Retroexcavadora)', unidad:'Hr', unidadVar:'Hr', categoria:'arriendo', util:25,
-    faena: { gaov:24352, gaof:2644, gadDir:96277, gadInd:5567, gafDir:71365, gafInd:2138, gag:842 } },
-  'gh': { nombre:'GH (Grúa Horquilla)', unidad:'Hr', unidadVar:'Hr', categoria:'arriendo', util:25,
+  // gaov de estos equipos también viene neto de Combustible (Diésel), salvo
+  // "gh" (Grúa Horquilla): en la pestaña GAO no tiene línea de Diésel propia
+  // — es un equipo que no funciona a diésel (ej. eléctrico/GLP) — así que no
+  // lleva "combustible" (queda en $0, no aplica editarlo).
+  'retro': { nombre:'Retroexcavadora', unidad:'Hr', unidadVar:'Hr', categoria:'arriendo', util:25,
+    faena: { gaov:11152, gaof:2644, gadDir:96277, gadInd:5567, gafDir:71365, gafInd:2138, gag:842, combustible:13200 } },
+  'gh': { nombre:'Grúa Horquilla', unidad:'Hr', unidadVar:'Hr', categoria:'arriendo', util:25,
     faena: { gaov:11152, gaof:2644, gadDir:0, gadInd:5567, gafDir:48000, gafInd:2138, gag:842 } },
   'mn': { nombre:'Motoniveladora', unidad:'Hr', unidadVar:'Hr', categoria:'arriendo', util:25,
-    faena: { gaov:33683, gaof:7965, gadDir:0, gadInd:5567, gafDir:160553, gafInd:2138, gag:842 } },
+    faena: { gaov:15683, gaof:7965, gadDir:0, gadInd:5567, gafDir:160553, gafInd:2138, gag:842, combustible:18000 } },
   'rc': { nombre:'Rodillo Compactador', unidad:'Hr', unidadVar:'Hr', categoria:'arriendo', util:25,
-    faena: { gaov:19424, gaof:2153, gadDir:0, gadInd:5567, gafDir:55672, gafInd:2138, gag:842 } },
+    faena: { gaov:11024, gaof:2153, gadDir:0, gadInd:5567, gafDir:55672, gafInd:2138, gag:842, combustible:8400 } },
   'ex200': { nombre:'Excavadora PC-210', unidad:'Hr', unidadVar:'Hr', categoria:'arriendo', util:25,
-    faena: { gaov:30559, gaof:2153, gadDir:0, gadInd:5567, gafDir:117675, gafInd:2138, gag:842 } },
+    faena: { gaov:11359, gaof:2153, gadDir:0, gadInd:5567, gafDir:117675, gafInd:2138, gag:842, combustible:19200 } },
   'ex300': { nombre:'Excavadora PC-300', unidad:'Hr', unidadVar:'Hr', categoria:'arriendo', util:25,
-    faena: { gaov:40606, gaof:2153, gadDir:0, gadInd:5567, gafDir:275829, gafInd:2138, gag:842 } },
+    faena: { gaov:11806, gaof:2153, gadDir:0, gadInd:5567, gafDir:275829, gafInd:2138, gag:842, combustible:28800 } },
   'ex450': { nombre:'Excavadora PC-450', unidad:'Hr', unidadVar:'Hr', categoria:'arriendo', util:25,
-    faena: { gaov:53098, gaof:2153, gadDir:0, gadInd:5567, gafDir:320792, gafInd:2138, gag:842 } },
+    faena: { gaov:12298, gaof:2153, gadDir:0, gadInd:5567, gafDir:320792, gafInd:2138, gag:842, combustible:40800 } },
   'cf': { nombre:'Cargador Frontal', unidad:'Hr', unidadVar:'Hr', categoria:'arriendo', util:25,
-    faena: { gaov:35990, gaof:7965, gadDir:0, gadInd:5567, gafDir:222379, gafInd:2138, gag:842 } },
+    faena: { gaov:16790, gaof:7965, gadDir:0, gadInd:5567, gafDir:222379, gafInd:2138, gag:842, combustible:19200 } },
   'ca': { nombre:'Camión Aljibe', unidad:'Hr', unidadVar:'Hr', categoria:'arriendo',
-    faena:  { gaov:852, gaof:76043, gadDir:93441, gadInd:6690, gafDir:116267, gafInd:2135, gag:842, util:30 },
-    matriz: { gaov:596, gaof:76043, gadDir:93441, gadInd:6690, gafDir:116267, gafInd:2135, gag:842, util:25 } },
+    faena:  { gaov:185, gaof:76043, gadDir:93441, gadInd:6690, gafDir:116267, gafInd:2135, gag:842, util:30, combustible:667 },
+    matriz: { gaov:116, gaof:76043, gadDir:93441, gadInd:6690, gafDir:116267, gafInd:2135, gag:842, util:25, combustible:480 } },
   'mb': { nombre:'Mini Bus', unidad:'Hr', unidadVar:'Hr', categoria:'arriendo', util:25,
-    faena: { gaov:269, gaof:3644, gadDir:0, gadInd:5567, gafDir:27603, gafInd:2138, gag:842 } },
+    faena: { gaov:136, gaof:3644, gadDir:0, gadInd:5567, gafDir:27603, gafInd:2138, gag:842, combustible:133 } },
   'mc': { nombre:'Mini Cargador', unidad:'Hr', unidadVar:'Hr', categoria:'arriendo', util:25,
-    faena: { gaov:20017, gaof:7965, gadDir:0, gadInd:5567, gafDir:41473, gafInd:2138, gag:842 } },
+    faena: { gaov:6817, gaof:7965, gadDir:0, gadInd:5567, gafDir:41473, gafInd:2138, gag:842, combustible:13200 } },
 };
 
 // Debe coincidir EXACTO con TOKEN_SEGURIDAD en google-apps-script.gs — sirve
@@ -721,7 +755,22 @@ const gsUrlActual = () => (ST.cfg && ST.cfg.gsUrl) || GAS_URL_DEFAULT;
 // la sobreescritura remota hasta que el conector se actualice y
 // redespliegue con el TAB_EQUIPOS nuevo (ver TAB_EQUIPOS en
 // google-apps-script.gs).
-const EQUIPOS_SIN_REMOTO = { 'tracto-cb35':true, 'tracto-cb45':true, 'tracto-cb80':true, 'camion-tolva':true };
+//
+// El resto de los equipos con "combustible" propio (ver EQUIPOS/COMP más
+// abajo, campo agregado el 10-09-2026 para poder editar el Diésel aparte del
+// resto del GAO Variable) TAMBIÉN se agrega aquí: el conector viejo no sabe
+// de este nuevo campo y devuelve un solo "gaov" (el total ANTIGUO, con el
+// Diésel todavía mezclado adentro) — si se le dejara pisar estos equipos, el
+// "gaov" quedaría inflado de nuevo (doble-contando el Diésel, que seguiría
+// editable aparte en "combustible") sin que se note. Se excluyen todos hasta
+// que el conector se actualice para separar Diésel también.
+const EQUIPOS_SIN_REMOTO = {
+  'tracto-cb35':true, 'tracto-cb45':true, 'tracto-cb80':true, 'camion-tolva':true,
+  'camioneta':true, 'camion-simple-34':true, 'camion-simple-1014':true, 'camion-simple-brazo':true,
+  'tracto':true, 'tracto-batea':true, 'tracto-rampla':true,
+  'ca':true, 'retro':true, 'mn':true, 'rc':true,
+  'ex200':true, 'ex300':true, 'ex450':true, 'cf':true, 'mb':true, 'mc':true,
+};
 
 let ultimaActualizacionCostos = null;
 function aplicarCostosRemotos_(data){
@@ -918,15 +967,16 @@ const utilDe = (eq, c) => (c && c.util != null) ? c.util : (eq && eq.util);
 // planilla Valorizador no tiene pestaña "Matriz" para ellos.
 const equipoTieneMatriz = eqKey => !!(EQUIPOS[eqKey] && EQUIPOS[eqKey].matriz);
 
-// "Tipo de Operación" se restringe a solo Faena cuando (a) el usuario marcó
-// esta cotización/servicio como "Arriendo" — pedido explícito: en Arriendo
-// no se puede elegir Matriz — o (b) el equipo elegido directamente no tiene
-// datos de Matriz (Retro/GH), sea cual sea el Tipo de Cotización. Se llama
-// al cambiar de equipo y al cambiar Tipo de Cotización.
+// "Tipo de Operación" se restringe a solo Faena únicamente cuando el equipo
+// elegido no tiene datos de Matriz (ver equipoTieneMatriz()) — antes también
+// se forzaba a Faena cada vez que el Tipo de Cotización era "Arriendo", pero
+// eso ya no aplica (pedido explícito): en Arriendo, los equipos que sí
+// tienen ambos centros (ej. Camión Aljibe, o cualquier equipo de Transporte
+// cotizado como Arriendo) deben poder elegir Matriz igual que en Transporte.
+// Se llama al cambiar de equipo y al cambiar Tipo de Cotización.
 function actualizarCentroDisponible(){
   const eqKey = $('c_eq').value;
-  const esArriendo = $('c_tipocot') && $('c_tipocot').value === 'arriendo';
-  const soloFaena = esArriendo || !equipoTieneMatriz(eqKey);
+  const soloFaena = !equipoTieneMatriz(eqKey);
   const opMatriz = document.querySelector('#c_centro option[value="matriz"]');
   if(opMatriz) opMatriz.style.display = soloFaena ? 'none' : '';
   if(soloFaena && $('c_centro').value === 'matriz') $('c_centro').value = 'faena';
@@ -945,6 +995,7 @@ function actualizarEtiquetasUnidad(){
   const lblCant = u==='hr' ? 'Horas de Uso' : 'Kilómetros del Roundtrip';
   const elLbl = $('lbl_c_km'); if(elLbl) elLbl.textContent = lblCant;
   const elGaov = $('lbl_gaov'); if(elGaov) elGaov.textContent = 'GAO Variable ($/'+u+')';
+  const elComb = $('lbl_combustible'); if(elComb) elComb.textContent = 'Combustible ($/'+u+')';
   const elRef1 = $('lbl_ref_km'); if(elRef1) elRef1.textContent = '$/'+u+' neto';
   const elRef2 = $('lbl_ref_km_iva'); if(elRef2) elRef2.textContent = '$/'+u+' c/iva';
 }
@@ -983,7 +1034,7 @@ function poblarVariablesCalculo(){
   const centroKey = eq[centroReq] ? centroReq : 'faena'; // Retro/GH no tienen 'matriz'
   const c = eq[centroKey];
   const campos = {
-    c_v_gaov: c.gaov, c_v_gaof: c.gaof, c_v_gaddir: c.gadDir, c_v_gadind: c.gadInd,
+    c_v_gaov: c.gaov, c_v_combustible: c.combustible||0, c_v_gaof: c.gaof, c_v_gaddir: c.gadDir, c_v_gadind: c.gadInd,
     c_v_gafdir: c.gafDir, c_v_gafind: c.gafInd, c_v_gag: c.gag, c_v_util: utilDe(eq, c),
   };
   Object.keys(campos).forEach(id=>{
@@ -1058,6 +1109,7 @@ function computarDraft(){
   const c = eq[centroKey];
   const leerVar = (id, fallback) => { const v = parseFloat($(id) && $(id).value); return isNaN(v) ? fallback : v; };
   const gaov    = leerVar('c_v_gaov',   c.gaov);
+  const combustible = leerVar('c_v_combustible', c.combustible||0);
   const gaof    = leerVar('c_v_gaof',   c.gaof);
   const gadDir  = leerVar('c_v_gaddir', c.gadDir);
   const gadInd  = leerVar('c_v_gadind', c.gadInd);
@@ -1077,6 +1129,7 @@ function computarDraft(){
   const uVar = unidadVar.toLowerCase(); // 'km' | 'hr'
   const lineas = [
     { familia:'GAO', tipo:'dir', concepto:'GAO Variable ('+unidadVar+')', nota: fCLP(gaov)+'/'+uVar+' · '+centro.nombre+ed(gaov,c.gaov), base: gaov*km, pct:1.0, subtotal: gaov*km },
+    { familia:'GAO', tipo:'dir', concepto:'Combustible ('+unidadVar+')', nota: fCLP(combustible)+'/'+uVar+' · '+centro.nombre+ed(combustible,c.combustible||0), base: combustible*km, pct:1.0, subtotal: combustible*km },
     { familia:'GAO', tipo:'dir', concepto:'GAO Fijo (Día)',    nota: fCLP(gaof)+'/día · '+centro.nombre+ed(gaof,c.gaof), base: gaof*dias, pct:1.0, subtotal: gaof*dias },
     { familia:'GAD', tipo:'dir', concepto:'GAD Directo (Día)', nota: fCLP(gadDir)+'/día'+notaCond+' · '+centro.nombre+ed(gadDir,c.gadDir), base: gadDir*dias*conductores, pct:1.0, subtotal: gadDir*dias*conductores },
     { familia:'GAD', tipo:'ind', concepto:'GAD Indirectos (Día)', nota: fCLP(gadInd)+'/día · '+centro.nombre+ed(gadInd,c.gadInd), base: gadInd*dias, pct:PCT_IND, subtotal: gadInd*dias },
