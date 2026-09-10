@@ -1340,14 +1340,11 @@ function limpiarCot() {
 // formulario "Agregar Servicio": eso ya se valida al presionar
 // "+ Agregar Servicio" y sus datos quedan dentro de cada item).
 const CAMPOS_REQUERIDOS_COT = [
+  // De "Datos del Cliente" solo estos 3 son obligatorios — pedido explícito:
+  // RUT, Teléfono, Dirección, Comuna y Ciudad quedan opcionales.
   {id:'c_emp', label:'Razón Social / Nombre'},
-  {id:'c_rut', label:'RUT'},
   {id:'c_ctc', label:'Contacto'},
-  {id:'c_tel', label:'Teléfono'},
   {id:'c_mail', label:'Email'},
-  {id:'c_dir', label:'Dirección'},
-  {id:'c_com', label:'Comuna'},
-  {id:'c_ciu', label:'Ciudad'},
   {id:'c_fec', label:'Fecha'},
   {id:'c_vig', label:'Vigencia (días)'},
   {id:'c_mon', label:'Moneda'},
